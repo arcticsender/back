@@ -1,12 +1,17 @@
 import os
 import re
 import secrets
-import smtplib
 import threading
 import time
+import json
+import urllib.error
 import urllib.request
+
+try:
+    import requests
+except ImportError:
+    requests = None
 from html import escape
-from email.mime.text import MIMEText
 from datetime import datetime, UTC, timedelta
 from functools import wraps
 from decimal import Decimal, ROUND_HALF_UP
@@ -20,6 +25,10 @@ try:
 except ImportError:  # Mongo backup is optional until pymongo is installed/configured
     MongoClient = None
     ASCENDING = None
+try:
+    import certifi
+except ImportError:
+    certifi = None
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -89,15 +98,14 @@ AUTO_ADMIN_FIRST_USER = os.getenv('AUTO_ADMIN_FIRST_USER', 'true').lower() == 't
 APP_ENV = os.getenv('APP_ENV', 'development').lower()
 REQUIRE_STRIPE_PAYMENTS = os.getenv('REQUIRE_STRIPE_PAYMENTS', 'true' if APP_ENV == 'production' else 'false').lower() == 'true'
 ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY = os.getenv('ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY', 'false').lower() == 'true'
-SMTP_HOST = os.getenv('SMTP_HOST', '')
-SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
-SMTP_USER = os.getenv('SMTP_USER') or os.getenv('SMTP_USERNAME') or ''
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD') or os.getenv('SMTP_PASS') or ''
-SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
-SMTP_USE_SSL = os.getenv('SMTP_USE_SSL', 'true' if str(os.getenv('SMTP_PORT', '587')) == '465' else 'false').lower() == 'true'
-MAIL_FROM = os.getenv('MAIL_FROM') or os.getenv('SMTP_FROM_EMAIL') or SMTP_USER or 'support@arcticsender.com'
-MAIL_FROM_NAME = os.getenv('MAIL_FROM_NAME') or os.getenv('SMTP_FROM_NAME') or SITE_NAME
-MAIL_REPLY_TO = os.getenv('MAIL_REPLY_TO', MAIL_FROM)
+# Email setup
+# Render blocks many outbound SMTP ports on common plans, so this app sends mail
+# through Resend's HTTPS API instead of smtplib/SMTP.
+RESEND_API_KEY = (os.getenv('RESEND_API_KEY') or '').strip()
+RESEND_API_URL = (os.getenv('RESEND_API_URL') or 'https://api.resend.com/emails').strip()
+MAIL_FROM = os.getenv('MAIL_FROM') or 'ArcticSender <onboarding@resend.dev>'
+MAIL_FROM_NAME = os.getenv('MAIL_FROM_NAME') or SITE_NAME
+MAIL_REPLY_TO = os.getenv('MAIL_REPLY_TO', 'support@arcticsender.com')
 EMAIL_LOGO_URL = (os.getenv('EMAIL_LOGO_URL') or '').strip()
 EMAIL_OTP_ENABLED = os.getenv('EMAIL_OTP_ENABLED', 'true').lower() == 'true'
 OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', '10'))
@@ -110,6 +118,7 @@ ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', '')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 ADMIN_DISPLAY_NAME = os.getenv('ADMIN_DISPLAY_NAME', 'ArcticSender Support')
 MONGO_URI = os.getenv('MONGO_URI', '').strip()
+MONGO_URI_PLACEHOLDERS = ('cluster.mongodb.net', '<cluster>', 'your_real_cluster', 'user:password@')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'arcticsender')
 MONGO_BACKUP_ENABLED = os.getenv('MONGO_BACKUP_ENABLED', 'true').lower() == 'true'
 PASSWORD_MIN_LENGTH = max(10, int(os.getenv('PASSWORD_MIN_LENGTH', '10')))
@@ -858,22 +867,18 @@ def cashout_fee_for(amount_cents):
 
 def email_config_status():
     missing = []
-    if not SMTP_HOST:
-        missing.append('SMTP_HOST')
-    if not SMTP_USER:
-        missing.append('SMTP_USER')
-    if not SMTP_PASSWORD:
-        missing.append('SMTP_PASSWORD')
+    if not RESEND_API_KEY:
+        missing.append('RESEND_API_KEY')
+    if not MAIL_FROM:
+        missing.append('MAIL_FROM')
     return {
         'enabled': not missing,
         'missing': missing,
+        'provider': 'Resend',
+        'api_url': RESEND_API_URL,
         'from': MAIL_FROM,
         'from_name': MAIL_FROM_NAME,
-        'host': SMTP_HOST,
-        'port': SMTP_PORT,
-        'user': SMTP_USER,
-        'tls': SMTP_USE_TLS,
-        'ssl': SMTP_USE_SSL,
+        'reply_to': MAIL_REPLY_TO,
         'otp_enabled': EMAIL_OTP_ENABLED,
     }
 
@@ -909,30 +914,43 @@ def render_email_shell(title, preview, body_html, button_text=None, button_url=N
 def send_email_safe(to_email, subject, body):
     if not to_email:
         return False
+
     status = email_config_status()
     if not status['enabled']:
-        app.logger.info('Email skipped; missing SMTP settings: %s', ', '.join(status['missing']))
+        app.logger.info('Email skipped; missing Resend settings: %s', ', '.join(status['missing']))
         return False
+
+    if requests is None:
+        app.logger.warning('Email skipped: the requests package is missing. Run pip install -r requirements.txt.')
+        return False
+
+    payload = {
+        'from': MAIL_FROM,
+        'to': [to_email],
+        'subject': subject,
+        'html': body,
+    }
+    if MAIL_REPLY_TO:
+        payload['reply_to'] = [MAIL_REPLY_TO]
+
+    headers = {
+        'Authorization': f'Bearer {RESEND_API_KEY}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        # Important: Resend sits behind Cloudflare. python-urllib's default signature can trigger
+        # Cloudflare 1010 on some networks/hosts, so use a normal, explicit application UA.
+        'User-Agent': f'{SITE_NAME}/1.0 (+https://arcticsender.com; support@arcticsender.com)',
+    }
+
     try:
-        msg = MIMEText(body, 'html', 'utf-8')
-        msg['Subject'] = subject
-        msg['From'] = f'{MAIL_FROM_NAME} <{MAIL_FROM}>' if MAIL_FROM_NAME else MAIL_FROM
-        msg['To'] = to_email
-        if MAIL_REPLY_TO:
-            msg['Reply-To'] = MAIL_REPLY_TO
-        if SMTP_USE_SSL:
-            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-                server.login(SMTP_USER, SMTP_PASSWORD)
-                server.sendmail(MAIL_FROM, [to_email], msg.as_string())
-        else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-                if SMTP_USE_TLS:
-                    server.starttls()
-                server.login(SMTP_USER, SMTP_PASSWORD)
-                server.sendmail(MAIL_FROM, [to_email], msg.as_string())
-        return True
-    except Exception as exc:
-        app.logger.warning('Email failed to %s: %s', to_email, exc)
+        response = requests.post(RESEND_API_URL, headers=headers, json=payload, timeout=30)
+        if 200 <= response.status_code < 300:
+            app.logger.info('Email sent to %s through Resend: %s', to_email, response.text)
+            return True
+        app.logger.warning('Resend email failed to %s: HTTP %s %s', to_email, response.status_code, response.text)
+        return False
+    except requests.RequestException as exc:
+        app.logger.warning('Resend email failed to %s: %s', to_email, exc)
         return False
 
 
@@ -1086,13 +1104,28 @@ def send_gift_emails(contribution):
         )
 
 
+def mongo_uri_is_placeholder(uri):
+    if not uri:
+        return False
+    return any(token in uri for token in MONGO_URI_PLACEHOLDERS)
+
+
 def mongo_config_status():
     missing = []
+    if not MONGO_BACKUP_ENABLED:
+        return {'enabled': False, 'missing': [], 'db': MONGO_DB_NAME, 'disabled': True}
     if not MONGO_URI:
         missing.append('MONGO_URI')
+    if MONGO_URI and mongo_uri_is_placeholder(MONGO_URI):
+        missing.append('real MongoDB Atlas URI')
     if MONGO_URI and not MongoClient:
         missing.append('pymongo package')
-    return {'enabled': bool(MONGO_URI and MongoClient and MONGO_BACKUP_ENABLED), 'missing': missing, 'db': MONGO_DB_NAME}
+    return {
+        'enabled': bool(MONGO_URI and MongoClient and MONGO_BACKUP_ENABLED and not mongo_uri_is_placeholder(MONGO_URI)),
+        'missing': missing,
+        'db': MONGO_DB_NAME,
+        'disabled': False,
+    }
 
 
 def mongo_database():
@@ -1100,7 +1133,10 @@ def mongo_database():
     if not status['enabled']:
         return None
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2500)
+        mongo_kwargs = {'serverSelectionTimeoutMS': 2500}
+        if certifi:
+            mongo_kwargs.update({'tls': True, 'tlsCAFile': certifi.where()})
+        client = MongoClient(MONGO_URI, **mongo_kwargs)
         client.admin.command('ping')
         return client[MONGO_DB_NAME]
     except Exception as exc:
@@ -1328,7 +1364,7 @@ def register():
             sent = send_otp_email(user, code, 'signup')
             session['pending_signup_user_id'] = user.id
             if not sent and MAIL_REQUIRED_FOR_AUTH:
-                flash('Account created, but the verification email could not send. Check SMTP settings or contact support.', 'danger')
+                flash('Account created, but the verification email could not send. Check Resend settings or contact support.', 'danger')
             else:
                 flash('We sent a 6-digit verification code to your email.', 'success')
             return redirect(url_for('verify_email'))
@@ -1398,7 +1434,7 @@ def login():
                 return redirect(url_for('verify_email'))
             session['pending_login_user_id'] = user.id
             if not sent and MAIL_REQUIRED_FOR_AUTH:
-                flash('Login code could not be sent. Check SMTP settings or contact support.', 'danger')
+                flash('Login code could not be sent. Check Resend settings or contact support.', 'danger')
                 return redirect(url_for('login'))
             flash('We sent a 6-digit login code to your email.', 'success')
             return redirect(url_for('verify_login'))
@@ -1504,7 +1540,7 @@ def resend_otp(purpose):
     if send_otp_email(user, code, purpose):
         flash('A new code was sent.', 'success')
     else:
-        flash('The email could not be sent. Check SMTP settings or contact support.', 'danger')
+        flash('The email could not be sent. Check Resend settings or contact support.', 'danger')
     return redirect(url_for('verify_email' if purpose == 'signup' else 'verify_login'))
 
 
@@ -2126,12 +2162,12 @@ def admin_user_action(user_id):
         if sent:
             flash('Temporary password generated and emailed to the user. It was not shown on-screen for security.', 'warning')
         else:
-            flash('Temporary password was generated, but the email failed. Fix SMTP and use reset again.', 'danger')
+            flash('Temporary password was generated, but the email failed. Fix Resend and use reset again.', 'danger')
     elif action == 'resend_welcome':
         if send_welcome_email(user):
             flash('Welcome/setup email sent.', 'success')
         else:
-            flash('Email failed. Check SMTP settings.', 'danger')
+            flash('Email failed. Check Resend settings.', 'danger')
     elif action == 'save_note':
         flash('Admin note saved.', 'success')
     else:
@@ -2145,11 +2181,11 @@ def admin_user_action(user_id):
 @admin_required
 def admin_test_email():
     to_email = request.form.get('to_email', '').strip() or current_user().email
-    body = '<p>This is a test email from your ArcticSender SMTP setup. If you received this, auto emails are working.</p>'
-    if send_email_safe(to_email, f'{SITE_NAME} SMTP test', render_email_shell('SMTP test successful', 'ArcticSender email sending is working.', body, 'Open admin', f'{BASE_URL}{url_for("admin")}')):
+    body = '<p>This is a test email from your ArcticSender Resend setup. If you received this, auto emails are working.</p>'
+    if send_email_safe(to_email, f'{SITE_NAME} Resend test', render_email_shell('Resend test successful', 'ArcticSender email sending is working.', body, 'Open admin', f'{BASE_URL}{url_for("admin")}')):
         flash(f'Test email sent to {to_email}.', 'success')
     else:
-        flash('Test email failed. Check SMTP host, port, username, password/app password, TLS/SSL.', 'danger')
+        flash('Test email failed. Check RESEND_API_KEY and MAIL_FROM/domain verification.', 'danger')
     return redirect(url_for('admin'))
 
 
@@ -2354,9 +2390,4 @@ start_self_ping_thread()
 
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', '10000'))
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=(APP_ENV != 'production')
-    )
+    app.run(debug=(APP_ENV != 'production'))

@@ -22,8 +22,8 @@
   {% set mongo_status = mongo_config_status() %}
   <div class="feature-card compact-card">
     <h3>Email / OTP</h3>
-    <p>{% if email_status.enabled %}Ready from {{ email_status.from }} on {{ email_status.host }}:{{ email_status.port }}{% else %}Missing: {{ email_status.missing|join(', ') }}{% endif %}</p>
-    <p class="muted">OTP is {% if email_status.otp_enabled %}enabled{% else %}disabled{% endif %}. TLS: {{ email_status.tls }} · SSL: {{ email_status.ssl }}</p>
+    <p>{% if email_status.enabled %}Ready through {{ email_status.provider }} from {{ email_status.from }}{% else %}Missing: {{ email_status.missing|join(', ') }}{% endif %}</p>
+    <p class="muted">OTP is {% if email_status.otp_enabled %}enabled{% else %}disabled{% endif %}. Reply-to: {{ email_status.reply_to or 'none' }}</p>
     <form method="post" action="{{ url_for('admin_test_email') }}" class="admin-inline-form"><input name="to_email" placeholder="test@email.com"><button class="btn ghost">Send test</button></form>
   </div>
   <div class="feature-card compact-card">
