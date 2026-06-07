@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Gift Sent | {{ site_name }}{% endblock %}
+{% block content %}
+{% set creator = order.creator if order else contribution.creator %}
+{% set paid = order.status == 'paid' if order else contribution.status == 'paid' %}
+{% set total = order.total_amount_cents if order else contribution.amount_cents %}
+<section class="auth section">
+  <div class="panel success-card frost-card center">
+    <div class="success-icon">🎁</div>
+    <div class="pill">Gift sent</div>
+    <h1>{% if paid %}Your gift was delivered.{% else %}Your payment is processing.{% endif %}</h1>
+    <p class="muted">{% if paid %}{{ creator.display_name }} has been credited {{ money(total) }}.{% else %}Stripe is confirming the payment. The creator balance updates automatically when the webhook confirms it.{% endif %}</p>
+    <div class="receipt-box">
+      <span>Creator</span><b>{{ creator.display_name }}</b>
+      <span>Amount credited</span><b>{{ money(total) }}</b>
+      <span>Items</span><b>{{ contributions|length }}</b>
+      {% if order %}<span>Public sender</span><b>{{ order.supporter_name }}</b>{% endif %}
+    </div>
+    <div class="panel list receipt-list">
+      {% for c in contributions %}<div class="list-row"><b>{% if c.item %}{{ c.item.title }}{% else %}Custom donation{% endif %}</b><span>{{ money(c.amount_cents) }}</span></div>{% endfor %}
+    </div>
+    <div class="hero-actions center-actions"><a class="btn" href="{{ url_for('profile', username=creator.username) }}">Back to creator</a><a class="btn ghost" href="{{ url_for('home') }}">Home</a></div>
+  </div>
+</section>
+{% endblock %}

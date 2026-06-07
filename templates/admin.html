@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Admin | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head admin-hero">
+  <div>
+    <div class="pill">Admin control center</div>
+    <h1>Platform controls</h1>
+    <p>Manage creators, payment readiness, email health, MongoDB backups, cashouts, and account support from one cleaner dashboard.</p>
+  </div>
+  <div class="head-actions"><a class="btn ghost" href="{{ url_for('home') }}">View site</a></div>
+</section>
+
+<section class="section admin-stats compact-section">
+  <div class="stat-card"><span>Users</span><b>{{ users|length }}</b><small>{{ totals.verified_users }} verified · {{ totals.suspended }} suspended</small></div>
+  <div class="stat-card"><span>Paid volume</span><b>{{ money(totals.paid_cents) }}</b><small>{{ money(totals.pending_cents) }} pending</small></div>
+  <div class="stat-card"><span>Stripe ready</span><b>{{ totals.stripe_ready }}</b><small>Creators with payments + payouts enabled</small></div>
+  <div class="stat-card"><span>Cash gifts</span><b>{{ items|length }}</b><small>Wishlist/cash gift items</small></div>
+</section>
+
+<section class="section split-cards admin-health compact-section">
+  {% set email_status = email_config_status() %}
+  {% set mongo_status = mongo_config_status() %}
+  <div class="feature-card compact-card">
+    <h3>Email / OTP</h3>
+    <p>{% if email_status.enabled %}Ready from {{ email_status.from }} on {{ email_status.host }}:{{ email_status.port }}{% else %}Missing: {{ email_status.missing|join(', ') }}{% endif %}</p>
+    <p class="muted">OTP is {% if email_status.otp_enabled %}enabled{% else %}disabled{% endif %}. TLS: {{ email_status.tls }} · SSL: {{ email_status.ssl }}</p>
+    <form method="post" action="{{ url_for('admin_test_email') }}" class="admin-inline-form"><input name="to_email" placeholder="test@email.com"><button class="btn ghost">Send test</button></form>
+  </div>
+  <div class="feature-card compact-card">
+    <h3>MongoDB backup</h3>
+    <p>{% if mongo_status.enabled %}Ready: {{ mongo_status.db }}{% else %}Missing: {{ mongo_status.missing|join(', ') or 'MONGO_URI' }}{% endif %}</p>
+    <form method="post" action="{{ url_for('admin_mongo_sync') }}" style="margin-top:12px"><button class="btn ghost full">Run backup sync</button></form>
+  </div>
+  <div class="feature-card compact-card">
+    <h3>Payments</h3>
+    <p>Stripe Connect payouts are {% if stripe_connect_direct_payouts %}automatic{% else %}manual cashout based{% endif %}. Platform fee: {{ platform_fee_percent }}%.</p>
+    <p class="muted">Use user detail pages to check exact Connect requirements and payout readiness.</p>
+  </div>
+</section>
+
+<section class="section compact-section">
+  <div class="section-head"><h2>Accounts</h2><span>{{ users|length }} total</span></div>
+  <div class="table panel admin-table"><table>
+    <tr><th>User</th><th>Email</th><th>Status</th><th>Stripe</th><th>Balance</th><th>Last login</th><th></th></tr>
+    {% for u in users %}
+    <tr>
+      <td><b>@{{ u.username }}</b><br><span class="muted">{{ u.display_name }}</span></td>
+      <td>{{ u.email }}<br><span class="muted">{% if u.email_verified %}Verified{% else %}Unverified{% endif %}</span></td>
+      <td>{% if u.is_suspended %}<span class="status danger">Suspended</span>{% elif u.is_admin %}<span class="status ok">Admin</span>{% else %}<span class="status">Creator</span>{% endif %}</td>
+      <td>{% if u.stripe_payouts_enabled and u.stripe_charges_enabled %}<span class="status ok">Ready</span>{% elif u.stripe_account_id %}<span class="status warning">Needs info</span>{% else %}<span class="status">Not connected</span>{% endif %}</td>
+      <td>{{ money(u.balance_cents) }}<br><span class="muted">{{ money(u.lifetime_earned_cents) }} lifetime</span></td>
+      <td>{% if u.last_login_at %}{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</td>
+      <td class="right"><a class="btn ghost btn-small" href="{{ url_for('admin_user_detail', user_id=u.id) }}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="section compact-section">
+  <div class="section-head"><h2>Recent contributions</h2></div>
+  <div class="table panel admin-table"><table><tr><th>Supporter</th><th>Creator</th><th>Type</th><th>Amount</th><th>Status</th><th>Stripe</th></tr>{% for c in contributions %}<tr><td>{{ c.supporter_name if c.supporter_name and c.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</td><td>@{{ c.creator.username }}</td><td>{{ c.support_type }}</td><td>{{ money(c.amount_cents) }}</td><td>{{ c.status }}</td><td>{{ c.stripe_session_id[:18] if c.stripe_session_id else '—' }}</td></tr>{% else %}<tr><td colspan="6">No contributions yet.</td></tr>{% endfor %}</table></div>
+</section>
+
+<section class="section compact-section"><div class="section-head"><h2>Cashout requests</h2></div><div class="table panel admin-table"><table><tr><th>Creator</th><th>Gross</th><th>Fee</th><th>Status</th><th>Stripe</th><th></th></tr>{% for c in cashouts %}<tr><td>@{{ c.creator.username }}</td><td>{{ money(c.gross_cents) }}</td><td>{{ money(c.fee_cents) }}</td><td>{{ c.status }}</td><td>{{ c.creator.stripe_account_id or 'Missing' }}</td><td class="right">{% if c.status == 'pending' %}<form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='approve') }}"><button>Approve</button></form><form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='reject') }}"><button>Reject</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No cashout requests.</td></tr>{% endfor %}</table></div></section>
+{% endblock %}

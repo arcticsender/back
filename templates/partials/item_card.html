@@ -1,0 +1,20 @@
+<article class="item-card">
+  <a href="{{ url_for('support_item', item_id=item.id) }}" class="item-image" aria-label="View {{ item.title }}">
+    {% if item.image_url %}
+      <img src="{{ item.image_url }}" alt="{{ item.title }} gift image" loading="lazy">
+    {% else %}
+      <span class="item-image-placeholder">🎁</span>
+    {% endif %}
+  </a>
+  <div class="item-body">
+    <div class="item-top"><span class="tag">{{ item.type_label }}</span><span>{{ money(item.price_cents) }}</span></div>
+    <h3>{{ item.title }}</h3>
+    <p>{{ item.description[:110] }}{% if item.description|length > 110 %}...{% endif %}</p>
+    <div class="bar"><span style="width:{{ item.progress }}%"></span></div>
+    <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ item.progress }}%</span></div>
+    <div class="card-actions">
+      <a class="btn full" href="{{ url_for('support_item', item_id=item.id) }}">Add to cart</a>
+      <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}">Share gift</button>
+    </div>
+  </div>
+</article>

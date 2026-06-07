@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Gift Cart for {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head dash-head">
+  <div>
+    <div class="pill">Gift cart</div>
+    <h1>Checkout for {{ creator.display_name }}</h1>
+    <p>Cart checkout keeps gifting clean: add multiple cash gifts, choose currency once, then pay securely through Stripe.</p>
+  </div>
+  <div class="head-actions"><a class="btn ghost" href="{{ url_for('profile', username=creator.username) }}">Add more gifts</a></div>
+</section>
+<section class="section support-layout compact">
+  <div class="panel list frost-card">
+    <div class="section-head mini"><h2>Your cart</h2><span>{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span></div>
+    {% for entry in entries %}
+      <div class="cart-row">
+        <div><b>{{ entry.title }}</b><span>{{ entry.type_label }}</span></div>
+        <strong>{{ money(entry.amount_cents) }}</strong>
+        <form method="post" action="{{ url_for('cart_remove', username=creator.username, index=entry.idx) }}" class="inline"><button>Remove</button></form>
+      </div>
+    {% else %}
+      <p class="muted">Your cart is empty. Add a cash gift from {{ creator.display_name }}’s page.</p>
+    {% endfor %}
+    {% if entries %}
+      <div class="cart-total"><span>Gift total</span><b>{{ money(total_cents) }}</b></div>
+      <p class="muted">ArcticSender keeps a {{ platform_fee_percent }}% platform fee. Stripe securely processes the payment and handles creator payouts through Connect.</p>
+      <form method="post" action="{{ url_for('cart_clear', username=creator.username) }}"><button class="btn ghost full">Clear cart</button></form>
+    {% endif %}
+  </div>
+  <form class="panel form frost-card" method="post">
+    <div class="pill">Secure checkout</div>
+    <h2>Payment details</h2>
+    <p class="muted">Your email is only used for your receipt and payment support. Creators only see the optional public username below.</p>
+    <label>Public username shown to creator, optional<input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
+    <label>Email for receipt, private<input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
+    <label>Checkout currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select></label>
+    <p class="currency-note muted">Creator balance is credited in USD. Currency conversion is estimated before Stripe checkout.</p>
+    <label>Message, optional<textarea name="message" rows="4" maxlength="500" placeholder="Write a nice note..."></textarea></label>
+    <button class="btn full" {% if not entries %}disabled{% endif %}>Pay</button>
+  </form>
+</section>
+{% endblock %}

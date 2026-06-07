@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}{% if item %}Edit{% else %}New{% endif %} Cash Gift | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth section">
+  <form class="panel form wide" method="post" enctype="multipart/form-data">
+    <div class="pill">Cash gift</div>
+    <h1>{% if item %}Edit cash gift{% else %}Add cash gift{% endif %}</h1>
+
+    <label>Gift type
+      <select name="gift_type">
+        <option value="single" {% if item and item.gift_type == 'single' %}selected{% endif %}>Single purchase cash gift</option>
+        <option value="goal" {% if item and item.gift_type == 'goal' %}selected{% endif %}>Crowdfund goal</option>
+      </select>
+    </label>
+
+    <label>Title
+      <input name="title" value="{{ item.title if item else '' }}" required placeholder="Streaming microphone, rent help, new camera...">
+    </label>
+
+    <label>Cash amount / goal
+      <input name="price" type="number" min="1" step="0.01" value="{{ item.price if item else '' }}" required>
+    </label>
+
+    <label>Description
+      <textarea name="description" rows="5">{{ item.description if item else '' }}</textarea>
+    </label>
+
+    <label>Reference URL
+      <input name="product_url" value="{{ item.product_url if item else '' }}" placeholder="Optional product/reference link">
+    </label>
+
+    <div class="upload-help">
+      <b>Gift image</b>
+      <span>Upload any normal phone/product image. ArcticSender will crop it to a clean 4:3 gift card, resize it, strip metadata, and save it as compressed WebP.</span>
+      <small>Best upload: 1200×900 or larger. Square and vertical images work too, but the center will be cropped.</small>
+    </div>
+
+    {% if item and item.image_url %}
+      <div class="gift-image-preview">
+        <img src="{{ item.image_url }}" alt="Current gift image">
+      </div>
+      <label class="check"><input type="checkbox" name="remove_image"> Remove current image</label>
+    {% endif %}
+
+    <label>Upload new image
+      <input name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+    </label>
+
+    <label>Image URL
+      <input name="image_url" value="{% if item and item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ item.image_url }}{% endif %}" placeholder="Optional external image URL. Uploaded images are recommended.">
+    </label>
+
+    <label>Priority
+      <select name="priority">
+        <option value="normal">Normal</option>
+        <option value="high" {% if item and item.priority == 'high' %}selected{% endif %}>High</option>
+        <option value="dream" {% if item and item.priority == 'dream' %}selected{% endif %}>Dream item</option>
+      </select>
+    </label>
+
+    {% if item %}<label class="check"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> Active/public</label>{% endif %}
+    <button class="btn full">Save cash gift</button>
+  </form>
+</section>
+{% endblock %}

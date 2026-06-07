@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block title %}Sends for {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head leaderboard-page-head">
+  <div>
+    <div class="pill">{{ creator.display_name }}</div>
+    <h1>Leaderboard & recent sends</h1>
+    <p>Only supporters who choose a public name appear on the leaderboard. Recent sends can show named or anonymous support while keeping emails and payment details private.</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('profile', username=creator.username) }}">Back to page</a>
+    <a class="btn" href="{{ url_for('donate', username=creator.username) }}">Send support</a>
+  </div>
+</section>
+<section class="section leaderboard-layout">
+  <div class="panel frost-card leaderboard-list">
+    <div class="section-head"><h2>Named leaderboard</h2><span>{{ leaderboard|length }} supporters</span></div>
+    {% for row in leaderboard %}
+      <div class="leader-row leaderboard-large"><span class="rank">#{{ loop.index }}</span><div><b>{{ row.name }}</b><small>{{ row.count }} gift{% if row.count != 1 %}s{% endif %}</small></div><strong>{{ money(row.amount_cents) }}</strong></div>
+    {% else %}<p class="muted">No named sends yet. Anonymous support does not count toward the public leaderboard.</p>{% endfor %}
+  </div>
+  <div class="panel frost-card leaderboard-list">
+    <div class="section-head"><h2>Recent sends</h2><span>{{ recent_sends|length }} latest</span></div>
+    {% for send in recent_sends %}
+      <div class="recent-send-row leaderboard-large">
+        <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom support{% endif %}{% if send.paid_at %} · {{ send.paid_at.strftime('%b %d') }}{% endif %}</small></div>
+        <strong>{{ money(send.amount_cents) }}</strong>
+      </div>
+    {% else %}<p class="muted">No recent sends yet.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Add Gift to Cart | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="support-layout section">
+  <div class="item-card large-card frost-card">
+    <div class="item-image tall">
+      {% if item.image_url %}
+        <img src="{{ item.image_url }}" alt="{{ item.title }} gift image" loading="lazy">
+      {% else %}
+        <span class="item-image-placeholder">🎁</span>
+      {% endif %}
+    </div>
+    <div class="item-body">
+      <div class="pill">{{ item.type_label }} for @{{ item.creator.username }}</div>
+      <h1>{{ item.title }}</h1>
+      <p>{{ item.description }}</p>
+      <div class="bar"><span style="width:{{ item.progress }}%"></span></div>
+      <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.price_cents) }} target</span></div>
+      {% if item.product_url %}<a href="{{ item.product_url }}" target="_blank" rel="noopener">View reference</a>{% endif %}
+    </div>
+  </div>
+  <form class="panel form frost-card" method="post">
+    <div class="pill">Add to cart</div>
+    <h2>Gift {{ item.creator.display_name }}</h2>
+    <p class="muted">Add this cash gift to your cart, then checkout once with your receipt email and optional public username.</p>
+    {% if item.gift_type == 'goal' %}
+      <label>Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
+    {% else %}
+      <div class="locked-amount"><span>Single gift amount</span><strong>{{ money(item.remaining_cents) }}</strong></div>
+    {% endif %}
+    <button class="btn full">Add to cart</button>
+    <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.url }}">Share this gift</button>
+    <p class="muted"><a href="{{ url_for('profile', username=item.creator.username) }}">Back to creator page</a></p>
+  </form>
+</section>
+{% endblock %}

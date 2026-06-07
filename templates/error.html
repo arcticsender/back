@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}{{ code }} | {{ site_name }}{% endblock %}
+{% block content %}<section class="section auth"><div class="panel center"><div class="pill">{{ code }}</div><h1>{{ message }}</h1><a class="btn" href="{{ url_for('home') }}">Go home</a></div></section>{% endblock %}

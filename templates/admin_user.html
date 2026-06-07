@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Manage @{{ managed_user.username }} | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head admin-hero">
+  <div>
+    <div class="pill">Creator support</div>
+    <h1>@{{ managed_user.username }}</h1>
+    <p>{{ managed_user.display_name }} · {{ managed_user.email }}</p>
+  </div>
+  <div class="head-actions"><a class="btn ghost" href="{{ url_for('admin') }}">Back to admin</a><a class="btn" href="{{ url_for('profile', username=managed_user.username) }}">View page</a></div>
+</section>
+
+<section class="section admin-user-grid compact-section">
+  <div class="panel form compact-card">
+    <div class="pill">Account info</div>
+    <div class="admin-kv"><span>User ID</span><b>{{ managed_user.id }}</b></div>
+    <div class="admin-kv"><span>Email verified</span><b>{{ 'Yes' if managed_user.email_verified else 'No' }}</b></div>
+    <div class="admin-kv"><span>Role</span><b>{% if managed_user.is_admin %}Admin{% elif managed_user.is_creator %}Creator{% else %}User{% endif %}</b></div>
+    <div class="admin-kv"><span>Status</span><b>{{ 'Suspended' if managed_user.is_suspended else 'Active' }}</b></div>
+    <div class="admin-kv"><span>Joined</span><b>{{ managed_user.created_at.strftime('%Y-%m-%d') }}</b></div>
+    <div class="admin-kv"><span>Last login</span><b>{% if managed_user.last_login_at %}{{ managed_user.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</b></div>
+    <div class="safe-box"><b>Passwords are not viewable.</b><br><span class="muted">For security, ArcticSender stores password hashes only. Use “Reset password” to generate a new temporary password and email it to the creator.</span></div>
+  </div>
+
+  <div class="panel form compact-card">
+    <div class="pill">Stripe Connect</div>
+    <div class="admin-kv"><span>Account</span><b>{{ managed_user.stripe_account_id or 'Not connected' }}</b></div>
+    <div class="admin-kv"><span>Payments</span><b>{{ 'Enabled' if managed_user.stripe_charges_enabled else 'Not ready' }}</b></div>
+    <div class="admin-kv"><span>Payouts</span><b>{{ 'Enabled' if managed_user.stripe_payouts_enabled else 'Not ready' }}</b></div>
+    <div class="admin-kv"><span>Country</span><b>{{ managed_user.stripe_country or '—' }}</b></div>
+    {% if stripe_status and (stripe_status.currently_due or stripe_status.past_due or stripe_status.pending_verification) %}
+      <div class="alert warning"><b>Stripe needs:</b><ul>{% for x in stripe_status.past_due + stripe_status.currently_due + stripe_status.pending_verification %}<li>{{ x }}</li>{% endfor %}</ul></div>
+    {% endif %}
+  </div>
+
+  <form class="panel form compact-card" method="post" action="{{ url_for('admin_user_action', user_id=managed_user.id) }}">
+    <div class="pill">Admin actions</div>
+    <textarea name="admin_note" rows="5" placeholder="Private admin note...">{{ managed_user.admin_note or '' }}</textarea>
+    <button class="btn ghost full" name="action" value="save_note">Save note</button>
+    <div class="admin-action-grid">
+      {% if managed_user.is_suspended %}<button name="action" value="unsuspend">Unsuspend</button>{% else %}<button class="ghost" name="action" value="suspend">Suspend</button>{% endif %}
+      <button class="ghost" name="action" value="verify_email">Verify email</button>
+      <button class="ghost" name="action" value="toggle_creator">Toggle creator</button>
+      {% if managed_user.is_admin %}<button class="ghost" name="action" value="remove_admin">Remove admin</button>{% else %}<button class="ghost" name="action" value="make_admin">Make admin</button>{% endif %}
+      <button class="ghost" name="action" value="resend_welcome">Send welcome email</button>
+      <button class="ghost" name="action" value="reset_password" onclick="return confirm('Reset this user password and show/email a temporary password?')">Reset password</button>
+    </div>
+  </form>
+</section>
+
+<section class="section admin-stats compact-section">
+  <div class="stat-card"><span>Lifetime received</span><b>{{ money(managed_user.lifetime_earned_cents) }}</b></div>
+  <div class="stat-card"><span>Internal balance</span><b>{{ money(managed_user.balance_cents) }}</b></div>
+  <div class="stat-card"><span>Gift items</span><b>{{ items|length }}</b></div>
+  <div class="stat-card"><span>Contributions</span><b>{{ contributions|length }}</b></div>
+</section>
+
+<section class="section compact-section"><div class="section-head"><h2>Recent creator contributions</h2></div><div class="table panel admin-table"><table><tr><th>Supporter</th><th>Amount</th><th>Status</th><th>Email private</th><th>Paid</th></tr>{% for c in contributions %}<tr><td>{{ c.supporter_name if c.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</td><td>{{ money(c.amount_cents) }}</td><td>{{ c.status }}</td><td>{{ c.supporter_email or '—' }}</td><td>{% if c.paid_at %}{{ c.paid_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="5">No contributions.</td></tr>{% endfor %}</table></div></section>
+{% endblock %}

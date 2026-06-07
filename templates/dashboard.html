@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head dash-head">
+  <div>
+    <div class="pill">Dashboard</div>
+    <h1>Welcome, {{ current_user.display_name }}.</h1>
+    <p>Manage cash gifts, direct support, Stripe Connect payouts, and your creator page.</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('settings') }}">Profile + Stripe</a>
+    <a class="btn" href="{{ url_for('new_item') }}">Add cash gift</a>
+  </div>
+</section>
+
+<section class="section split-cards">
+  <div class="feature-card balance">
+    <h3>{{ money(current_user.lifetime_earned_cents) }}</h3>
+    <p>Lifetime gifts confirmed</p>
+  </div>
+  <div class="feature-card">
+    <h3>{{ stripe_payout_status_label(current_user) }}</h3>
+    <p>Stripe payout status</p>
+  </div>
+  <div class="feature-card">
+    <h3>/@{{ current_user.username }}</h3>
+    <p>Your public link</p>
+  </div>
+</section>
+
+<section class="section support-layout compact">
+  <div class="panel form frost-card">
+    <div class="pill">Payouts</div>
+    <h2>Stripe Connect</h2>
+    {% if stripe_connect_direct_payouts %}
+      <p class="muted">ArcticSender uses Stripe Connect Express. Supporter payments go through Stripe Checkout, ArcticSender keeps a {{ platform_fee_percent }}% platform fee, and Stripe handles creator payouts.</p>
+      <div class="safe-box">{{ stripe_payout_status_label(current_user) }}</div>
+      <a class="btn full" href="{{ url_for('stripe_connect') }}">{% if current_user.stripe_account_id %}Update Stripe payout setup{% else %}Connect Stripe to receive gifts{% endif %}</a>
+      {% if current_user.stripe_account_id %}
+        <a class="btn ghost full" href="{{ url_for('stripe_express_dashboard') }}">Open Stripe Express Dashboard</a>
+      {% endif %}
+    {% else %}
+      <p class="muted">Manual balance cashouts are enabled. Minimum cashout is {{ money(min_cashout_cents) }}.</p>
+      {% if current_user.balance_cents <= 0 %}
+        <div class="safe-box">Your balance is $0.00. Cashout unlocks after you receive a paid gift.</div>
+      {% elif not current_user.stripe_account_id %}
+        <div class="safe-box">Please connect Stripe to receive payouts.</div><a class="btn full" href="{{ url_for('settings') }}">Connect Stripe</a>
+      {% elif current_user.balance_cents < min_cashout_cents %}
+        <div class="safe-box">You need at least {{ money(min_cashout_cents) }} available before cashing out.</div>
+      {% else %}
+        <form method="post" action="{{ url_for('cashout') }}"><label>Amount to cash out<input name="amount" type="number" step="0.01" min="10" max="{{ current_user.balance_cents / 100 }}" placeholder="10.00" required></label><button class="btn full">Request cashout</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+  <div class="panel list frost-card">
+    <div class="section-head mini"><h2>Recent cashouts</h2></div>
+    {% if stripe_connect_direct_payouts %}
+      <p class="muted">No manual cashout requests are needed. Stripe pays creators to their connected bank based on their Express payout schedule.</p>
+    {% else %}
+      {% for c in cashouts %}<div class="list-row"><b>{{ money(c.gross_cents) }}</b><span>{{ c.status }} · fee {{ money(c.fee_cents) }}</span></div>{% else %}<p class="muted">No cashouts yet.</p>{% endfor %}
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head"><h2>Your cash gift items</h2><a href="{{ url_for('profile', username=current_user.username) }}">View public page</a></div>
+  <div class="table panel frost-card"><table><tr><th>Gift</th><th>Type</th><th>Amount</th><th>Funded</th><th>Status</th><th></th></tr>{% for item in items %}<tr><td>{{ item.title }}</td><td>{{ item.type_label }}</td><td>{{ money(item.price_cents) }}</td><td>{{ item.progress }}%</td><td>{% if item.is_active %}Active{% else %}Hidden{% endif %}</td><td class="right"><a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a><form method="post" action="{{ url_for('delete_item', item_id=item.id) }}" class="inline"><button>Delete</button></form></td></tr>{% else %}<tr><td colspan="6">No cash gifts yet.</td></tr>{% endfor %}</table></div>
+</section>
+<section class="section"><div class="section-head"><h2>Recent support</h2></div><div class="panel list frost-card">{% for c in contributions %}<div class="list-row"><b>{{ c.supporter_name }}</b><span>{{ money(c.amount_cents) }} · {{ c.support_type }} · {{ c.status }}{% if c.item %} · {{ c.item.title }}{% endif %}</span></div>{% else %}<p class="muted">No support yet.</p>{% endfor %}</div></section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}{{ site_name }} | Premium Cash Gifts for Creators{% endblock %}
+{% block content %}
+<section class="hero section home-hero-clean">
+  <div class="hero-copy">
+    <img class="hero-brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt="ArcticSender logo">
+    <div class="pill">Private creator gifting</div>
+    <h1>Clean cash gifts for creators.</h1>
+    <p>{{ site_name }} gives creators a polished gift page, private sender handling, cart checkout, Stripe Connect payouts, and simple sharing without the messy dashboard clutter.</p>
+    <div class="hero-actions">
+      <a class="btn" href="{{ url_for('register') }}">Create your page</a>
+      {% if current_user %}<a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}">View my page</a>{% else %}<a class="btn ghost" href="{{ url_for('login') }}">Login</a>{% endif %}
+    </div>
+  </div>
+  <a class="hero-card glass frost-card home-preview-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}">
+    <div class="mini-profile"><img class="mini-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><div><b>@creator</b><p>Gift page preview</p></div></div>
+    <div class="send-option compact"><span>Crowdfund goal</span><b>$410 / $500</b><div class="bar"><span style="width:82%"></span></div></div>
+    <div class="preview-mini-grid">
+      <div class="send-option compact"><span>Cart</span><b>$154</b></div>
+      <div class="send-option compact"><span>Sender</span><b>@topfan</b></div>
+    </div>
+    <div class="balance-card compact"><small>Stripe Connect</small><strong>Ready</strong><em>Automatic creator payouts</em></div>
+  </a>
+</section>
+
+<section class="section split-cards home-feature-strip">
+  <a class="feature-card interactive-card" href="{{ url_for('register') }}"><h3>Fast setup</h3><p>Create a page, add cash gifts, and connect Stripe-hosted onboarding.</p></a>
+  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('settings') }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Private by default</h3><p>Emails and payment details stay hidden. Public names only show when supporters choose them.</p></a>
+  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Share anywhere</h3><p>Cleaner pages, carts, goals, recent sends, and a separate named leaderboard.</p></a>
+</section>
+{% endblock %}

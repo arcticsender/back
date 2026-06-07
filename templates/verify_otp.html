@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth section compact-auth">
+  <form class="panel form otp-card frost-card elevated-auth" method="post">
+    <div class="auth-logo-wrap"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""></div>
+    <div class="pill">Secure verification</div>
+    <h1>{{ title }}</h1>
+    <p class="muted">We sent a 6-digit code to <b>{{ email }}</b>. Enter it below to continue.</p>
+    <label>Verification code
+      <input class="otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+    </label>
+    <button class="btn full">Verify code</button>
+  </form>
+  <form class="panel form compact-panel resend-panel" method="post" action="{{ url_for('resend_otp', purpose=purpose) }}">
+    <div class="pill">Need another code?</div>
+    <p class="muted">Codes expire quickly for security. Request a fresh one if yours expired.</p>
+    <button class="btn ghost full">Resend code</button>
+  </form>
+</section>
+{% endblock %}

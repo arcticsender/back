@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Create Account | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth section compact-auth">
+  <form class="panel form auth-clean frost-card elevated-auth" method="post">
+    <div class="auth-logo-wrap"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""></div>
+    <div class="pill">Creator signup</div>
+    <h1>Create your gift page</h1>
+    <p class="muted">Build a cleaner creator page with private supporters, cart checkout, and Stripe Connect payouts.</p>
+    <div class="form-grid-2">
+      <label>Display name<input name="display_name" required placeholder="Your creator name" autocomplete="name"></label>
+      <label>Username<input name="username" required placeholder="yourname" autocomplete="username"></label>
+    </div>
+    <label>Email<input name="email" type="email" required placeholder="you@example.com" autocomplete="email"></label>
+    <label>Password<input name="password" type="password" minlength="10" required placeholder="10+ chars, upper/lowercase, number, symbol" autocomplete="new-password"></label>
+    <button class="btn full">Create account</button>
+    <p class="muted auth-footline">Already have one? <a href="{{ url_for('login') }}">Login</a></p>
+  </form>
+</section>
+{% endblock %}
