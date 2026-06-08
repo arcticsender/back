@@ -1,15 +1,18 @@
 {% extends 'base.html' %}
-{% block title %}Custom Donation to {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block title %}Custom Gift to {{ creator.display_name }} | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="auth section">
-  <form class="panel form frost-card" method="post">
-    <div class="pill">Custom donation</div>
-    <h1>Add custom support for {{ creator.display_name }}</h1>
-    <p class="muted">This adds a custom donation to your cart. It does not count toward the gift leaderboard.</p>
-    <label>Amount in USD<input name="amount" type="number" step="0.01" min="1" placeholder="25.00" required></label>
-    <button class="btn full">Add to cart</button>
-    <button type="button" class="btn ghost full share-btn" data-share-title="{{ creator.display_name }} on {{ site_name }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('profile', username=creator.username) }}">Share profile</button>
-    <p class="muted"><a href="{{ url_for('profile', username=creator.username) }}">Back to creator page</a></p>
-  </form>
+<section class="creator-page section custom-gift-page">
+  <div class="creator-shell">
+    {% set creator_header_mode = 'custom' %}
+    {% include 'partials/creator_header.html' %}
+
+    <form class="panel form frost-card custom-gift-card" method="post">
+      <div class="pill">Custom gift</div>
+      <h1>Send a custom cash gift</h1>
+      <p class="muted">Add any amount to your cart for {{ creator.display_name }}. You can check out after reviewing your cart.</p>
+      <label>Amount in USD<input name="amount" type="number" step="0.01" min="1" placeholder="25.00" required></label>
+      <button class="btn full">Add to cart</button>
+    </form>
+  </div>
 </section>
 {% endblock %}

@@ -3,26 +3,10 @@
 {% block content %}
 <section class="creator-page section">
   <div class="creator-shell">
-    <div class="creator-hero frost-card">
-      <div class="profile-banner creator-banner" {% if creator.banner_url %}style="background-image:url('{{ creator.banner_url }}')"{% endif %}></div>
-      <div class="creator-info">
-        <div class="avatar big{% if creator.avatar_url %} has-image{% endif %}">{% if creator.avatar_url %}<img src="{{ creator.avatar_url }}" alt="{{ creator.display_name }} profile photo" loading="lazy">{% else %}{{ creator.display_name[:2]|upper }}{% endif %}</div>
-        <div class="creator-copy">
-          <span class="pill">@{{ creator.username }}</span>
-          <h1>{{ creator.display_name }}</h1>
-          <p>{{ creator.bio or 'Send cash gifts, fund goals, or add a custom message.' }}</p>
-          {% if creator.socials %}<pre class="socials">{{ creator.socials }}</pre>{% endif %}
-        </div>
-      </div>
-      <div class="creator-actions">
-        <a class="btn" href="{{ url_for('donate', username=creator.username) }}">Custom gift</a>
-        <a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Cart{% if cart_count %} · {{ cart_count }}{% endif %}</a>
-        <a class="btn ghost" href="{{ url_for('public_leaderboard', username=creator.username) }}">Gifters</a>
-        <button type="button" class="btn ghost share-btn" data-share-title="{{ creator.display_name }} on {{ site_name }}" data-share-url="{{ request.url }}">Share page</button>
-      </div>
-    </div>
+    {% set creator_header_mode = 'wishlist' %}
+    {% include 'partials/creator_header.html' %}
 
-    <div class="creator-layout creator-layout-clean">
+    <div class="creator-layout creator-layout-clean" id="wishlist">
       <main class="creator-main-list">
         <div class="section-head clean-head"><div><span class="pill">Wishlist</span><h2>Cash gifts</h2></div><span>{{ items|length }} active</span></div>
         <div class="grid cards-grid creator-cards">{% for item in items %}{% include 'partials/item_card.html' %}{% else %}<div class="empty">This creator has not added cash gifts yet. You can still add a custom donation to your cart.</div>{% endfor %}</div>
