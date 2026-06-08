@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}{{ site_name }} | Creator Cash Gifts, Wishlists & Stripe Payouts{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}ArcticSender is a cleaner, faster creator cash gift wishlist and Throne alternative with private checkout, gift carts, Stripe Connect payouts, and polished share pages.{% endblock %}">
-  <meta name="keywords" content="creator wishlist, cash gifts, creator gifts, wishlist platform, Throne alternative, Stripe Connect payouts, fan support, ArcticSender">
+  <title>{% block title %}{{ site_name }} | Creator Cash Gifts & Wishlist Pages{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}ArcticSender is a cleaner creator cash gift wishlist and Throne alternative with private checkout, gift carts, website balances, and polished share pages.{% endblock %}">
+  <meta name="keywords" content="creator wishlist, cash gifts, creator gifts, wishlist platform, Throne alternative, creator cashouts, fan support, ArcticSender">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="{% block canonical_url %}{{ request.url }}{% endblock %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and Stripe Connect payouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
+  {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and creator cashouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
   </script>
   {% block head_extra %}{% endblock %}
 </head>
@@ -105,10 +105,11 @@
   <footer class="footer">
     <div>
       <div class="footer-brand"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><b>{{ site_name }}</b></div>
-      <p>Premium cash gifts, wishlist goals, carts, and Stripe payouts for creators.</p>
+      <p>Premium cash gifts, wishlist goals, carts, and creator cashouts.</p>
     </div>
     <div class="footer-links">
       <a href="{{ url_for('register') }}">Create page</a>
+      <a href="{{ url_for('faq') }}">FAQ</a>
       <a href="mailto:support@arcticsender.com">Contact</a>
     </div>
   </footer>

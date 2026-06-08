@@ -13,9 +13,8 @@
 
     <div class="safe-box" style="display:grid;gap:14px;">
       <div>
-        <b>Stripe Connect</b><br>
-        <span class="muted">Status: {{ stripe_payout_status_label(current_user) }}</span><br>
-        <span class="muted">Supporter payments stay in the creator's ArcticSender balance first. Stripe Express is only used for bank cashouts.</span>
+        <b>Bank cashouts <a class="info-link" href="{{ url_for('faq') }}#faq-cashouts" data-tip="Stripe Express securely handles creator bank payout details. Gifts still credit your ArcticSender balance first." aria-label="Learn more about cashouts">i</a></b><br>
+        <span class="muted">Status: {{ stripe_payout_status_label(current_user) }}</span>
       </div>
 
       {% if stripe_config.issues %}
@@ -41,15 +40,9 @@
         <div class="stat-card"><span>Payouts</span><b>{% if current_user.stripe_payouts_enabled %}Enabled{% else %}Not ready{% endif %}</b></div>
       </div>
 
-      {% if current_user.stripe_account_id %}
-        <div class="muted" style="font-size:.92rem;line-height:1.55;">
-          <b>Connected account:</b> {{ current_user.stripe_account_id }}<br>
-          <b>Country:</b> {{ current_user.stripe_country or 'Not set' }}<br>
-          <b>Return URL:</b> {{ stripe_config.connect_return_url }}<br>
-          <b>Webhook URL:</b> {{ stripe_config.webhook_url }}
-        </div>
-      {% else %}
-        <div class="muted" style="font-size:.92rem;line-height:1.55;">
+      {% if current_user.is_admin %}
+        <div class="muted dev-details" style="font-size:.92rem;line-height:1.55;">
+          {% if current_user.stripe_account_id %}<b>Connected account:</b> {{ current_user.stripe_account_id }}<br><b>Country:</b> {{ current_user.stripe_country or 'Not set' }}<br>{% endif %}
           <b>Return URL:</b> {{ stripe_config.connect_return_url }}<br>
           <b>Webhook URL:</b> {{ stripe_config.webhook_url }}
         </div>
@@ -131,7 +124,7 @@
         <label class="file-picker compact-file"><input name="banner" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose banner image</b><small class="file-picker-name">No image selected</small></label>
       </div>
     </div>
-    <p class="muted upload-note">Storage saver: uploads are resized, metadata is stripped, converted to WEBP, and old replaced profile/banner uploads are deleted automatically.</p>
+    <p class="muted upload-note">Images are optimized automatically for fast loading. <a class="info-link" href="{{ url_for('faq') }}#faq-images" data-tip="ArcticSender crops, compresses, and stores uploaded images so they stay available after restarts." aria-label="Learn more about image uploads">i</a></p>
     <button class="btn full">Save profile</button>
   </form>
 

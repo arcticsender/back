@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}FAQ | {{ site_name }}{% endblock %}
+{% block meta_description %}Answers about ArcticSender cash gifts, creator balances, cashouts, fees, privacy, carts, image uploads, and why it feels cleaner than Throne-style wishlists.{% endblock %}
+{% block content %}
+<section class="section page-head faq-head">
+  <div>
+    <div class="pill">Help center</div>
+    <h1>FAQ</h1>
+    <p>Clear answers for creators and gifters.</p>
+  </div>
+</section>
+
+<section class="section faq-section">
+  <div class="panel frost-card faq-search-card">
+    <label class="faq-search-label">Search FAQ<input id="faqSearch" type="search" placeholder="Search payments, cashouts, privacy, carts..."></label>
+  </div>
+
+  <div class="faq-list" id="faqList">
+    <article class="faq-item panel frost-card" id="faq-balance" data-faq="balance website balance gifts creator account">
+      <h2>How does creator balance work?</h2>
+      <p>Paid gifts are credited to the creator’s ArcticSender balance first. The creator can request a cashout when their balance is available and their bank payout setup is ready.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-cashouts" data-faq="cashouts stripe express payout bank account withdrawals">
+      <h2>How do cashouts work?</h2>
+      <p>Creators connect a bank payout account through Stripe Express. ArcticSender uses that setup for cashouts only, so supporter payments do not go straight to the creator’s Stripe balance.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-fees" data-faq="fees platform fee stripe processing cost">
+      <h2>What fees are included?</h2>
+      <p>ArcticSender includes a platform fee to help cover payment processing, hosting, support, fraud prevention, and creator tools. Stripe may also apply normal payment-processing fees during checkout.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-privacy" data-faq="privacy anonymous email username message creator sees">
+      <h2>What does the creator see?</h2>
+      <p>The creator sees the public name and message the sender chooses to share. Receipt email stays private and is used for payment support and receipts.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-cart" data-faq="cart checkout gifts non logged in senders">
+      <h2>Can gifters use the cart without logging in?</h2>
+      <p>Yes. Gifters can add wishlist items or custom gifts to a cart and check out without creating an account.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-currency" data-faq="currency usd conversion international checkout">
+      <h2>How does currency conversion work?</h2>
+      <p>Creators are credited in USD. When another checkout currency is selected, the amount is estimated before Stripe checkout and Stripe shows the final payment amount before payment.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-images" data-faq="images uploads profile banner gift images restart storage webp">
+      <h2>How are uploaded images handled?</h2>
+      <p>Profile, banner, and gift images are optimized for fast loading. When Mongo storage is enabled, uploaded images are backed up so they can be restored after a server restart or redeploy.</p>
+    </article>
+
+    <article class="faq-item panel frost-card" id="faq-throne" data-faq="throne alternative better cleaner wishlist platform">
+      <h2>How is ArcticSender different from Throne-style wishlists?</h2>
+      <p>ArcticSender is built to feel cleaner, faster, and more direct than bulky Throne-style wishlists: simple cash gifts, carts, creator balances, clean public pages, and a polished gifters leaderboard.</p>
+    </article>
+  </div>
+</section>
+
+<script>
+(() => {
+  const input = document.getElementById('faqSearch');
+  const items = [...document.querySelectorAll('.faq-item')];
+  const filter = () => {
+    const q = (input.value || '').trim().toLowerCase();
+    items.forEach((item) => {
+      const haystack = (item.textContent + ' ' + (item.dataset.faq || '')).toLowerCase();
+      item.style.display = !q || haystack.includes(q) ? '' : 'none';
+    });
+  };
+  input?.addEventListener('input', filter);
+  if (location.hash) {
+    const target = document.querySelector(location.hash);
+    target?.classList.add('faq-highlight');
+    setTimeout(() => target?.classList.remove('faq-highlight'), 2600);
+  }
+})();
+</script>
+{% endblock %}

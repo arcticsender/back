@@ -34,9 +34,9 @@
       {% if item.product_url %}<a class="reference-link" href="{{ item.product_url }}" target="_blank" rel="noopener">View reference link</a>{% endif %}
       <div class="gift-detail-actions">
         <button class="btn full">Add to cart</button>
-        <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.url }}">Share this gift</button>
+        <button type="button" class="btn ghost icon-btn share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.url }}" aria-label="Share this gift"><svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.1c-.76 0-1.44.3-1.95.77L8.9 12.7a3.2 3.2 0 0 0 0-1.39l7.07-4.11A2.9 2.9 0 1 0 15 5.1c0 .23.03.45.08.66L8.02 9.87a2.95 2.95 0 1 0 0 4.26l7.1 4.15c-.05.18-.07.38-.07.58A2.95 2.95 0 1 0 18 16.1Z" fill="currentColor"/></svg></button>
       </div>
-      <a class="back-link" href="{{ url_for('profile', username=item.creator.username) }}">← Back to {{ item.creator.display_name }}</a>
+      <a class="back-link" href="{{ url_for('profile', username=item.creator.username) }}">Back to {{ item.creator.display_name }}</a>
     </form>
   </div>
 </section>

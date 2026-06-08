@@ -86,10 +86,14 @@
           await navigator.share({ title, url });
         } else if (navigator.clipboard) {
           await navigator.clipboard.writeText(url);
-          const old = button.textContent;
-          button.textContent = 'Link copied';
+          const old = button.innerHTML;
           button.classList.add('copied');
-          setTimeout(() => { button.textContent = old; button.classList.remove('copied'); }, 1600);
+          if (button.classList.contains('icon-btn')) {
+            button.setAttribute('aria-label', 'Link copied');
+          } else {
+            button.textContent = 'Link copied';
+          }
+          setTimeout(() => { button.innerHTML = old; button.classList.remove('copied'); }, 1600);
         }
       } catch (err) {
         console.warn('Share cancelled or failed', err);

@@ -1577,6 +1577,7 @@ def sitemap_xml():
         (f"{BASE_URL}{url_for('home')}", 'daily', '1.0'),
         (f"{BASE_URL}{url_for('register')}", 'weekly', '0.8'),
         (f"{BASE_URL}{url_for('login')}", 'monthly', '0.4'),
+        (f"{BASE_URL}{url_for('faq')}", 'weekly', '0.7'),
     ]
     for user in User.query.filter_by(is_suspended=False).order_by(User.created_at.desc()).limit(500).all():
         urls.append((f"{BASE_URL}{url_for('profile', username=user.username)}", 'daily', '0.9'))
@@ -1975,6 +1976,11 @@ def creator_leaderboard_rows(user, limit=25):
 def creator_recent_sends(user, limit=30):
     return Contribution.query.filter_by(creator_id=user.id, status='paid').order_by(Contribution.paid_at.desc().nullslast(), Contribution.created_at.desc()).limit(limit).all()
 
+
+
+@app.route('/faq')
+def faq():
+    return render_template('faq.html')
 
 @app.route('/@<username>')
 def profile(username):

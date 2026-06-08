@@ -19,7 +19,7 @@
     {% endif %}
     <div class="card-actions">
       <button type="button" class="btn full gift-modal-open" data-gift-modal="gift-modal-{{ item.id }}">Add to cart</button>
-      <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}">Share</button>
+      <button type="button" class="btn ghost icon-btn share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}" aria-label="Share {{ item.title }}"><svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.1c-.76 0-1.44.3-1.95.77L8.9 12.7a3.2 3.2 0 0 0 0-1.39l7.07-4.11A2.9 2.9 0 1 0 15 5.1c0 .23.03.45.08.66L8.02 9.87a2.95 2.95 0 1 0 0 4.26l7.1 4.15c-.05.18-.07.38-.07.58A2.95 2.95 0 1 0 18 16.1Z" fill="currentColor"/></svg></button>
     </div>
   </div>
 </article>
@@ -54,7 +54,7 @@
         <button class="btn full">Add to cart</button>
         <a class="btn ghost full" href="{{ url_for('support_item', item_id=item.id) }}">Open full page</a>
       </div>
-      <button type="button" class="link-button share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}">Copy share link</button>
+      <button type="button" class="link-button icon-share-link share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}" aria-label="Copy share link"><svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.1c-.76 0-1.44.3-1.95.77L8.9 12.7a3.2 3.2 0 0 0 0-1.39l7.07-4.11A2.9 2.9 0 1 0 15 5.1c0 .23.03.45.08.66L8.02 9.87a2.95 2.95 0 1 0 0 4.26l7.1 4.15c-.05.18-.07.38-.07.58A2.95 2.95 0 1 0 18 16.1Z" fill="currentColor"/></svg></button>
     </form>
   </div>
 </div>
