@@ -58,9 +58,15 @@
       <input name="image_url" value="{% if item and item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ item.image_url }}{% endif %}" placeholder="Optional external image URL. Uploaded images are recommended.">
     </label>
 
+    {% if item %}
+    <label>Display order
+      <input name="display_order" type="number" value="{{ item.display_order }}">
+    </label>
+    {% endif %}
+
     <label>Priority
       <select name="priority">
-        <option value="normal">Normal</option>
+        <option value="normal" {% if not item or item.priority == 'normal' %}selected{% endif %}>Normal</option>
         <option value="high" {% if item and item.priority == 'high' %}selected{% endif %}>High</option>
         <option value="dream" {% if item and item.priority == 'dream' %}selected{% endif %}>Dream item</option>
       </select>

@@ -9,22 +9,24 @@
     {% set creator_header_mode = 'gifters' %}
     {% include 'partials/creator_header.html' %}
 
-    <div class="section-head clean-head leaderboard-title"><div><span class="pill">Gifters</span><h2>Supporter leaderboard</h2></div><span>{{ leaderboard|length }} named</span></div>
-    <section class="leaderboard-layout leaderboard-layout-clean">
-      <div class="panel frost-card leaderboard-list">
-        <div class="section-head"><h2>Named gifters</h2><span>{{ leaderboard|length }} supporters</span></div>
-        {% for row in leaderboard %}
-          <div class="leader-row leaderboard-large"><span class="rank">#{{ loop.index }}</span><div><b>{{ row.name }}</b><small>{{ row.count }} gift{% if row.count != 1 %}s{% endif %}</small></div><strong>{{ money(row.amount_cents) }}</strong></div>
-        {% else %}<p class="muted">No named gifters yet. Anonymous support stays private.</p>{% endfor %}
-      </div>
-      <div class="panel frost-card leaderboard-list">
-        <div class="section-head"><h2>Recent gifts</h2><span>{{ recent_sends|length }} latest</span></div>
-        {% for send in recent_sends %}
-          <div class="recent-send-row leaderboard-large">
-            <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom support{% endif %}{% if send.paid_at %} · {{ send.paid_at.strftime('%b %d') }}{% endif %}</small></div>
-            <strong>{{ money(send.amount_cents) }}</strong>
-          </div>
-        {% else %}<p class="muted">No recent gifts yet.</p>{% endfor %}
+    <section class="panel frost-card leaderboard-combined-card">
+      <div class="section-head clean-head leaderboard-title"><div><span class="pill">Gifters</span><h2>Leaderboard</h2><p class="muted">Named gifters appear here. Anonymous gifts stay private.</p></div><span>{{ leaderboard|length }} named</span></div>
+      <div class="leaderboard-combined-grid">
+        <div class="leaderboard-column">
+          <h3>Top gifters</h3>
+          {% for row in leaderboard %}
+            <div class="leader-row leaderboard-large"><span class="rank">#{{ loop.index }}</span><div><b>{{ row.name }}</b><small>{{ row.count }} gift{% if row.count != 1 %}s{% endif %}</small></div><strong>{{ money(row.amount_cents) }}</strong></div>
+          {% else %}<p class="muted">No named gifters yet.</p>{% endfor %}
+        </div>
+        <div class="leaderboard-column">
+          <h3>Recent gifts</h3>
+          {% for send in recent_sends %}
+            <div class="recent-send-row leaderboard-large">
+              <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom gift{% endif %}{% if send.paid_at %} · {{ send.paid_at.strftime('%b %d') }}{% endif %}</small></div>
+              <strong>{{ money(send.amount_cents) }}</strong>
+            </div>
+          {% else %}<p class="muted">No gifts have been sent yet.</p>{% endfor %}
+        </div>
       </div>
     </section>
   </div>

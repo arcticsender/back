@@ -236,6 +236,7 @@ class WishlistItem(db.Model):
     funded_cents = db.Column(db.Integer, nullable=False, default=0)
     gift_type = db.Column(db.String(20), default='single')  # single or goal
     stock_count = db.Column(db.Integer, nullable=False, default=1)  # single purchase quantity, 1-99
+    display_order = db.Column(db.Integer, nullable=False, default=0)
     priority = db.Column(db.String(20), default='normal')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
@@ -663,6 +664,22 @@ def stock_from_form(value):
         return min(99, max(1, int(value or 1)))
     except Exception:
         return 1
+
+
+def next_item_order(user_id):
+    max_order = db.session.query(db.func.max(WishlistItem.display_order)).filter_by(creator_id=user_id).scalar()
+    return int(max_order or 0) + 10
+
+
+def item_order_query(query):
+    return query.order_by(WishlistItem.display_order.asc(), WishlistItem.created_at.desc())
+
+
+def redirect_after_item_save(default_endpoint='dashboard', **values):
+    next_url = request.form.get('next') or request.args.get('next')
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        return redirect(next_url)
+    return redirect(url_for(default_endpoint, **values))
 
 
 def single_item_count_in_cart(cart, item_id):
@@ -1583,7 +1600,7 @@ def sitemap_xml():
         urls.append((f"{BASE_URL}{url_for('profile', username=user.username)}", 'daily', '0.9'))
         urls.append((f"{BASE_URL}{url_for('public_leaderboard', username=user.username)}", 'daily', '0.7'))
         urls.append((f"{BASE_URL}{url_for('donate', username=user.username)}", 'weekly', '0.7'))
-    for item in WishlistItem.query.filter_by(is_active=True).order_by(WishlistItem.created_at.desc()).limit(1000).all():
+    for item in item_order_query(WishlistItem.query.filter_by(is_active=True)).limit(1000).all():
         urls.append((f"{BASE_URL}{url_for('support_item', item_id=item.id)}", 'daily', '0.8'))
     rows = []
     for loc, changefreq, priority in urls:
@@ -1822,7 +1839,7 @@ def logout():
 @login_required
 def dashboard():
     user = current_user()
-    items = WishlistItem.query.filter_by(creator_id=user.id).order_by(WishlistItem.created_at.desc()).all()
+    items = item_order_query(WishlistItem.query.filter_by(creator_id=user.id)).all()
     contributions = Contribution.query.filter_by(creator_id=user.id).order_by(Contribution.created_at.desc()).limit(30).all()
     cashouts = CashoutRequest.query.filter_by(creator_id=user.id).order_by(CashoutRequest.created_at.desc()).limit(10).all()
     return render_template('dashboard.html', items=items, contributions=contributions, cashouts=cashouts)
@@ -1920,13 +1937,14 @@ def new_item():
             price_cents=price_cents,
             gift_type=gift_type,
             stock_count=stock_from_form(request.form.get('stock_count')) if gift_type == 'single' else 1,
+            display_order=next_item_order(current_user().id),
             priority=request.form.get('priority', 'normal')
         )
         db.session.add(item)
         db.session.commit()
         mongo_backup_model(item)
         flash('Cash gift added.', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect_after_item_save('profile', username=current_user().username)
     return render_template('item_form.html', item=None)
 
 
@@ -1948,6 +1966,11 @@ def edit_item(item_id):
         item.gift_type = request.form.get('gift_type', item.gift_type) if request.form.get('gift_type') in {'single', 'goal'} else item.gift_type
         item.stock_count = stock_from_form(request.form.get('stock_count')) if item.gift_type == 'single' else 1
         item.priority = request.form.get('priority', item.priority)
+        if request.form.get('display_order') not in (None, ''):
+            try:
+                item.display_order = int(request.form.get('display_order'))
+            except Exception:
+                pass
         item.is_active = bool(request.form.get('is_active'))
         image_url = request.form.get('image_url', '').strip()[:300]
         if image_url and not image_url.startswith(('http://', 'https://', '/static/')):
@@ -1966,8 +1989,31 @@ def edit_item(item_id):
         db.session.commit()
         mongo_backup_model(item)
         flash('Cash gift updated.', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect_after_item_save('profile', username=current_user().username)
     return render_template('item_form.html', item=item)
+
+
+@app.route('/wishlist/<int:item_id>/move', methods=['POST'])
+@login_required
+def move_item(item_id):
+    item = db.session.get(WishlistItem, item_id) or abort(404)
+    user = current_user()
+    if item.creator_id != user.id and not user.is_admin:
+        abort(403)
+    direction = request.form.get('direction', '')
+    siblings = item_order_query(WishlistItem.query.filter_by(creator_id=item.creator_id)).all()
+    index = next((i for i, sibling in enumerate(siblings) if sibling.id == item.id), None)
+    if index is None:
+        return redirect_after_item_save('profile', username=item.creator.username)
+    swap_index = index - 1 if direction == 'up' else index + 1 if direction == 'down' else None
+    if swap_index is not None and 0 <= swap_index < len(siblings):
+        other = siblings[swap_index]
+        item.display_order, other.display_order = other.display_order, item.display_order
+        db.session.commit()
+        mongo_backup_model(item)
+        mongo_backup_model(other)
+        flash('Gift order updated.', 'success')
+    return redirect_after_item_save('profile', username=item.creator.username)
 
 
 @app.route('/wishlist/<int:item_id>/delete', methods=['POST'])
@@ -1978,8 +2024,8 @@ def delete_item(item_id):
         abort(403)
     db.session.delete(item)
     db.session.commit()
-    flash('Cash gift deleted.', 'info')
-    return redirect(url_for('dashboard'))
+    flash('Cash gift removed.', 'info')
+    return redirect_after_item_save('profile', username=current_user().username)
 
 
 def creator_leaderboard_rows(user, limit=25):
@@ -2015,7 +2061,10 @@ def faq():
 @app.route('/@<username>')
 def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
-    items = WishlistItem.query.filter_by(creator_id=user.id, is_active=True).order_by(WishlistItem.created_at.desc()).all()
+    viewer = current_user()
+    owns_page = bool(viewer and (viewer.id == user.id or viewer.is_admin))
+    item_query = WishlistItem.query.filter_by(creator_id=user.id) if owns_page else WishlistItem.query.filter_by(creator_id=user.id, is_active=True)
+    items = item_order_query(item_query).all()
     recent_sends = creator_recent_sends(user, 4)
     named_count = len(creator_leaderboard_rows(user, 1000))
     return render_template('profile.html', creator=user, items=items, recent_sends=recent_sends, named_count=named_count)
@@ -2428,7 +2477,7 @@ def cashout():
 @admin_required
 def admin():
     users = User.query.order_by(User.created_at.desc()).all()
-    items = WishlistItem.query.order_by(WishlistItem.created_at.desc()).all()
+    items = item_order_query(WishlistItem.query).all()
     contributions = Contribution.query.order_by(Contribution.created_at.desc()).limit(120).all()
     cashouts = CashoutRequest.query.order_by(CashoutRequest.created_at.desc()).limit(80).all()
     totals = {
@@ -2445,7 +2494,7 @@ def admin():
 @admin_required
 def admin_user_detail(user_id):
     user = db.session.get(User, user_id) or abort(404)
-    items = WishlistItem.query.filter_by(creator_id=user.id).order_by(WishlistItem.created_at.desc()).all()
+    items = item_order_query(WishlistItem.query.filter_by(creator_id=user.id)).all()
     contributions = Contribution.query.filter_by(creator_id=user.id).order_by(Contribution.created_at.desc()).limit(80).all()
     orders = CheckoutOrder.query.filter_by(creator_id=user.id).order_by(CheckoutOrder.created_at.desc()).limit(40).all()
     cashouts = CashoutRequest.query.filter_by(creator_id=user.id).order_by(CashoutRequest.created_at.desc()).limit(40).all()
@@ -2678,6 +2727,9 @@ def migrate_sqlite_columns():
             columns = [row[1] for row in conn.exec_driver_sql('PRAGMA table_info(wishlist_item)').fetchall()]
             if 'stock_count' not in columns:
                 conn.exec_driver_sql("ALTER TABLE wishlist_item ADD COLUMN stock_count INTEGER DEFAULT 1 NOT NULL")
+            if 'display_order' not in columns:
+                conn.exec_driver_sql("ALTER TABLE wishlist_item ADD COLUMN display_order INTEGER DEFAULT 0 NOT NULL")
+                conn.exec_driver_sql("UPDATE wishlist_item SET display_order = id * 10 WHERE display_order = 0")
         if 'checkout_order' in tables:
             columns = [row[1] for row in conn.exec_driver_sql('PRAGMA table_info(checkout_order)').fetchall()]
             if 'platform_fee_cents' not in columns:
