@@ -646,6 +646,16 @@ def safe_public_sender(value):
     return value or 'Anonymous'
 
 
+def sender_initial(value):
+    name = safe_public_sender(value)
+    if name == 'Anonymous':
+        return 'A'
+    for char in name.strip():
+        if char.isalnum():
+            return char.upper()
+    return 'A'
+
+
 def slugify_username(value):
     value = (value or '').lower().strip()
     value = re.sub(r'[^a-z0-9_\.]+', '', value)
@@ -841,6 +851,7 @@ def inject_globals():
         'request': request,
         'csrf_token': csrf_token,
         'default_gift_image_url': default_gift_image_url,
+        'sender_initial': sender_initial,
     }
 
 
@@ -2105,7 +2116,22 @@ def creator_leaderboard_rows(user, limit=25):
 
 
 def creator_recent_sends(user, limit=30):
-    return Contribution.query.filter_by(creator_id=user.id, status='paid').order_by(Contribution.paid_at.desc().nullslast(), Contribution.created_at.desc()).limit(limit).all()
+    # Recent gift cards only show gifts that still exist. If a creator deletes a gift,
+    # its historical value remains in the leaderboard totals, but the deleted gift is
+    # not shown as a recent gift card.
+    return (
+        Contribution.query
+        .join(WishlistItem, Contribution.item_id == WishlistItem.id)
+        .filter(
+            Contribution.creator_id == user.id,
+            Contribution.status == 'paid',
+            Contribution.item_id.isnot(None),
+            WishlistItem.id.isnot(None),
+        )
+        .order_by(Contribution.paid_at.desc().nullslast(), Contribution.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 

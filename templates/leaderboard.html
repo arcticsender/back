@@ -22,8 +22,9 @@
       <div class="leaderboard-column">
         <h3>Top gifters</h3>
         {% for row in leaderboard %}
-          <div class="leader-row leaderboard-large">
+          <div class="leader-row leaderboard-large with-sender-avatar">
             <span class="rank">#{{ loop.index }}</span>
+            <span class="sender-avatar" aria-hidden="true">{{ sender_initial(row.name) }}</span>
             <div>
               <b>{{ row.name }}</b>
               <small>{{ row.count }} gift{% if row.count != 1 %}s{% endif %}</small>
@@ -48,8 +49,11 @@
                 {% endif %}
               </div>
               <div class="recent-gift-copy">
-                <b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b>
-                <small>{% if send.item %}{{ send.item.title }}{% else %}Custom gift{% endif %}{% if send.paid_at %} · {{ send.paid_at.strftime('%b %d') }}{% endif %}</small>
+                <div class="recent-sender-line">
+                  <span class="sender-avatar mini" aria-hidden="true">{{ sender_initial(send.supporter_name) }}</span>
+                  <b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b>
+                </div>
+                <small>{{ send.item.title }}{% if send.paid_at %} · {{ send.paid_at.strftime('%b %d') }}{% endif %}</small>
                 <strong>{{ money(send.amount_cents) }}</strong>
               </div>
             </div>

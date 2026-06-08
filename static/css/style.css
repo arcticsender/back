@@ -1710,3 +1710,59 @@ body.gift-modal-is-open{overflow:hidden}.gift-title-link{color:inherit}.gift-mod
 .gift-sort-form .btn{min-height:40px;padding:0 14px}
 .owner-card-tools{justify-content:flex-end!important}
 @media(max-width:700px){.gift-sort-form{display:grid;grid-template-columns:1fr auto}.gift-sort-form label{grid-column:1/-1}.gift-sort-form select{width:100%}}
+
+/* Final gifters/profile image polish */
+.leader-row.with-sender-avatar{
+  grid-template-columns:42px 42px minmax(0,1fr) auto;
+  align-items:center;
+}
+.sender-avatar{
+  width:38px;
+  height:38px;
+  border-radius:999px;
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 auto;
+  background:linear-gradient(135deg,rgba(232,251,255,.98),rgba(88,203,255,.95) 52%,rgba(33,115,255,.95));
+  color:#03101d;
+  font-size:.92rem;
+  font-weight:950;
+  letter-spacing:-.03em;
+  box-shadow:0 10px 24px rgba(54,183,255,.18);
+  border:1px solid rgba(255,255,255,.28);
+}
+.sender-avatar.mini{
+  width:24px;
+  height:24px;
+  font-size:.68rem;
+  box-shadow:none;
+}
+.recent-sender-line{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.recent-sender-line b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.recent-gift-mini{
+  align-items:start;
+}
+.recent-gift-img{
+  position:relative;
+}
+@media(max-width:700px){
+  .leader-row.with-sender-avatar{
+    grid-template-columns:34px 34px minmax(0,1fr);
+    gap:8px;
+  }
+  .leader-row.with-sender-avatar strong{
+    grid-column:3;
+  }
+  .sender-avatar{width:32px;height:32px;font-size:.78rem}
+  .sender-avatar.mini{width:22px;height:22px;font-size:.62rem}
+}
