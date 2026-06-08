@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="auth section">
+  <form class="panel form wide" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="pill">Profile</div>
+    <h1>Edit creator profile</h1>
+    <p class="muted">Update the public details supporters see on your creator page.</p>
+
+    <label>Display name<input name="display_name" value="{{ current_user.display_name }}" required></label>
+    <label>Username<input name="username" value="{{ current_user.username }}" required></label>
+    <label>Bio<textarea name="bio" rows="5" placeholder="A short intro for your supporters">{{ current_user.bio }}</textarea></label>
+    <label>Social links<textarea name="socials" rows="3" placeholder="Discord, YouTube, TikTok, Instagram links">{{ current_user.socials }}</textarea></label>
+
+    <div class="upload-grid">
+      <div class="upload-box">
+        <span>Profile image</span>
+        <small>Square images work best. ArcticSender optimizes uploads for fast loading.</small>
+        {% if current_user.avatar_url %}<img class="settings-avatar-preview" src="{{ current_user.avatar_url }}" alt="Current profile image">{% endif %}
+        <label class="file-picker compact-file"><input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose profile image</b><small class="file-picker-name">No image selected</small></label>
+      </div>
+      <div class="upload-box">
+        <span>Profile banner</span>
+        <small>Wide images work best. Your banner is cropped cleanly for desktop and mobile.</small>
+        {% if current_user.banner_url %}<img class="settings-banner-preview" src="{{ current_user.banner_url }}" alt="Current banner image">{% endif %}
+        <label class="file-picker compact-file"><input name="banner" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose banner image</b><small class="file-picker-name">No image selected</small></label>
+      </div>
+    </div>
+
+    <p class="muted upload-note">Images are compressed and stored for restart-safe loading. <a class="info-link" href="{{ url_for('faq') }}#faq-images" data-tip="ArcticSender crops, compresses, and stores uploaded images so they stay available after restarts." aria-label="Learn more about image uploads">i</a></p>
+    <button class="btn full">Save profile</button>
+    <a class="btn ghost full" href="{{ url_for('settings') }}">Open account settings</a>
+  </form>
+</section>
+{% endblock %}

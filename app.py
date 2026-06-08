@@ -1828,25 +1828,19 @@ def dashboard():
     return render_template('dashboard.html', items=items, contributions=contributions, cashouts=cashouts)
 
 
-@app.route('/settings', methods=['GET', 'POST'])
+@app.route('/profile-settings', methods=['GET', 'POST'])
 @login_required
-def settings():
+def profile_settings():
     user = current_user()
     if request.method == 'POST':
         username = slugify_username(request.form.get('username', user.username))
         if username != user.username and User.query.filter_by(username=username).first():
             flash('That username is taken.', 'danger')
-            return redirect(url_for('settings'))
+            return redirect(url_for('profile_settings'))
         user.username = username
         user.display_name = request.form.get('display_name', user.display_name).strip()[:80]
         user.bio = request.form.get('bio', '').strip()[:700]
         user.socials = request.form.get('socials', '').strip()[:500]
-        if ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY:
-            stripe_account_id = request.form.get('stripe_account_id', '').strip()[:100]
-            if stripe_account_id and not stripe_account_id.startswith('acct_'):
-                flash('Stripe connected account ID must start with acct_.', 'danger')
-                return redirect(url_for('settings'))
-            user.stripe_account_id = stripe_account_id
         avatar = save_upload(request.files.get('avatar'), 'avatar')
         banner = save_upload(request.files.get('banner'), 'banner')
         if avatar:
@@ -1857,11 +1851,47 @@ def settings():
             user.banner_url = banner
         db.session.commit()
         mongo_backup_model(user)
-        flash('Profile and payout settings updated.', 'success')
+        flash('Profile updated.', 'success')
         return redirect(url_for('profile', username=user.username))
+    return render_template('profile_settings.html')
+
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    user = current_user()
+    if request.method == 'POST':
+        if ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY:
+            stripe_account_id = request.form.get('stripe_account_id', '').strip()[:100]
+            if stripe_account_id and not stripe_account_id.startswith('acct_'):
+                flash('Stripe connected account ID must start with acct_.', 'danger')
+                return redirect(url_for('settings'))
+            user.stripe_account_id = stripe_account_id
+            db.session.commit()
+            mongo_backup_model(user)
+            flash('Payout settings updated.', 'success')
+        return redirect(url_for('settings'))
     stripe_status = stripe_account_details(user)
     stripe_config = stripe_config_status()
     return render_template('settings.html', stripe_status=stripe_status, stripe_config=stripe_config)
+
+
+@app.route('/account/close', methods=['POST'])
+@login_required
+def close_account():
+    user = current_user()
+    if request.form.get('confirm', '').strip().upper() != 'CLOSE':
+        flash('Type CLOSE to confirm account closure.', 'danger')
+        return redirect(url_for('settings'))
+    if user.balance_cents > 0 or user.pending_cashout_cents > 0:
+        flash('Cash out your balance before closing your account.', 'warning')
+        return redirect(url_for('settings'))
+    user.is_suspended = True
+    db.session.commit()
+    mongo_backup_model(user)
+    clear_session_keep_cart()
+    flash('Your account has been closed.', 'info')
+    return redirect(url_for('home'))
 
 
 @app.route('/wishlist/new', methods=['GET', 'POST'])
