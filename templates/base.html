@@ -35,7 +35,20 @@
         <a class="btn btn-small" href="{{ url_for('register') }}">Start free</a>
       {% endif %}
     </nav>
-    <button class="mobile-menu-btn" type="button" aria-label="Open menu" aria-controls="mobile-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
+    <div class="mobile-top-actions" aria-label="Mobile quick actions">
+      {% if current_user %}
+        <a class="mobile-cart-btn" href="{{ url_for('cart', username=current_user.username) }}" aria-label="Open cart">Cart{% if cart_count %}<b>{{ cart_count }}</b>{% endif %}</a>
+        <span class="mobile-balance-pill" title="Received balance">{{ money(current_user.lifetime_earned_cents) }}</span>
+      {% else %}
+        {% if cart_count and cart_creator_username %}
+          <a class="mobile-cart-btn" href="{{ url_for('cart', username=cart_creator_username) }}" aria-label="Open cart">Cart<b>{{ cart_count }}</b></a>
+        {% else %}
+          <a class="mobile-cart-btn" href="{{ url_for('login') }}" aria-label="Open cart">Cart</a>
+        {% endif %}
+        <a class="mobile-auth-btn" href="{{ url_for('login') }}">Sign in</a>
+      {% endif %}
+      <button class="mobile-menu-btn" type="button" aria-label="Open menu" aria-controls="mobile-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
+    </div>
   </header>
 
   <div class="mobile-drawer-backdrop" data-close-mobile-menu></div>
