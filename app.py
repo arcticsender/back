@@ -574,6 +574,21 @@ def cart_creator_username():
     return user.username if user else None
 
 
+def cart_url():
+    username = cart_creator_username()
+    if username:
+        return url_for('cart', username=username)
+    return url_for('global_cart')
+
+
+def clear_session_keep_cart():
+    saved_cart = session.get('gift_cart')
+    session.clear()
+    if saved_cart:
+        session['gift_cart'] = saved_cart
+    session.modified = True
+
+
 def cart_entries_for_creator(creator):
     cart = session.get('gift_cart') or {'creator_id': None, 'items': []}
     if cart.get('creator_id') != creator.id:
@@ -773,6 +788,7 @@ def inject_globals():
         'cart_count': cart_count(),
         'cart_total_cents': cart_total_cents(),
         'cart_creator_username': cart_creator_username(),
+        'cart_url': cart_url(),
         'platform_fee_percent': PLATFORM_FEE_PERCENT,
         'stripe_connect_direct_payouts': STRIPE_CONNECT_DIRECT_PAYOUTS,
         'stripe_payout_status_label': stripe_payout_status_label,
@@ -791,7 +807,7 @@ def login_required(view):
             flash('Please log in first.', 'warning')
             return redirect(url_for('login'))
         if user.is_suspended:
-            session.clear()
+            clear_session_keep_cart()
             flash('This account is currently suspended. Contact support if you think this is wrong.', 'danger')
             return redirect(url_for('login'))
         if EMAIL_OTP_ENABLED and not user.email_verified:
@@ -1570,7 +1586,7 @@ def register():
                 flash('We sent a 6-digit verification code to your email.', 'success')
             return redirect(url_for('verify_email'))
         send_welcome_email(user)
-        session.clear()
+        clear_session_keep_cart()
         session.permanent = True
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
@@ -1594,7 +1610,7 @@ def verify_email():
         if not ok:
             flash(error, 'danger')
             return redirect(url_for('verify_email'))
-        session.clear()
+        clear_session_keep_cart()
         session.permanent = True
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
@@ -1717,7 +1733,7 @@ def verify_login():
         if not ok:
             flash(error, 'danger')
             return redirect(url_for('verify_login'))
-        session.clear()
+        clear_session_keep_cart()
         session.permanent = True
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
@@ -1750,7 +1766,7 @@ def resend_otp(purpose):
 
 @app.route('/logout')
 def logout():
-    session.clear()
+    clear_session_keep_cart()
     flash('Logged out.', 'info')
     return redirect(url_for('home'))
 
@@ -1983,6 +1999,14 @@ def support_item(item_id):
         flash('Gift added to cart.', 'success')
         return redirect(url_for('cart', username=item.creator.username))
     return render_template('support.html', item=item)
+
+
+@app.route('/cart')
+def global_cart():
+    username = cart_creator_username()
+    if username:
+        return redirect(url_for('cart', username=username))
+    return render_template('global_cart.html')
 
 
 @app.route('/cart/<username>', methods=['GET', 'POST'])

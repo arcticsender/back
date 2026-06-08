@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Gift Cart | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head dash-head empty-cart-head">
+  <div>
+    <div class="pill">Gift cart</div>
+    <h1>Your cart is empty.</h1>
+    <p>Add a gift from any creator page and your cart will stay available here, even when you are not signed in.</p>
+  </div>
+  <div class="head-actions"><a class="btn" href="{{ url_for('home') }}">Explore ArcticSender</a></div>
+</section>
+<section class="section panel frost-card empty-cart-panel">
+  <h2>How the global cart works</h2>
+  <p class="muted">Senders do not need an account. Pick a creator gift, add it to cart, then checkout securely through Stripe. Carts stay tied to one creator at a time so payouts and checkout stay clean.</p>
+</section>
+{% endblock %}
