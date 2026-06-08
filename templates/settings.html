@@ -21,58 +21,42 @@
     </div>
   </div>
 
-  <div class="panel form wide frost-card" id="payouts">
+  <div class="panel form wide frost-card payout-settings-card" id="payouts">
     <div class="pill">Cashouts</div>
-    <h2>Bank payout setup</h2>
-    <p class="muted">Supporter payments credit your ArcticSender balance first. Connect a payout account here so you can cash out to your bank.</p>
+    <h2>Connect Stripe</h2>
+    <p class="muted">Connect Stripe once so ArcticSender can send approved cashouts to your bank. Gifts still credit your website balance first.</p>
 
-    <div class="safe-box" style="display:grid;gap:14px;">
-      <div>
-        <b>Cashout status <a class="info-link" href="{{ url_for('faq') }}#faq-cashouts" data-tip="Stripe Express securely handles creator bank payout details. Gifts still credit your ArcticSender balance first." aria-label="Learn more about cashouts">i</a></b><br>
-        <span class="muted">{{ stripe_payout_status_label(current_user) }}</span>
+    <div class="payout-status-panel">
+      <div class="payout-status-head">
+        <div>
+          <b>Payout status <a class="info-link" href="{{ url_for('faq') }}#faq-cashouts" data-tip="Stripe securely collects bank details for cashouts. Supporter payments stay in your ArcticSender balance until you cash out." aria-label="Learn more about cashouts">i</a></b>
+          <span>{{ stripe_payout_status_label(current_user) }}</span>
+        </div>
+        <a class="btn payout-connect-btn" href="{{ url_for('stripe_connect') }}">Connect Stripe</a>
+      </div>
+
+      <div class="payout-mini-grid">
+        <div class="mini-stat"><span>Website balance</span><b>{{ money(current_user.balance_cents) }}</b></div>
+        <div class="mini-stat"><span>Payout account</span><b>{% if current_user.stripe_account_id %}Started{% else %}Not connected{% endif %}</b></div>
+        <div class="mini-stat"><span>Cashouts</span><b>{% if current_user.stripe_payouts_enabled %}Ready{% else %}Not ready{% endif %}</b></div>
       </div>
 
       {% if stripe_config.issues %}
-        <div class="alert danger" style="margin:0;"><b>Setup issue</b><ul style="margin:.5rem 0 0 1.2rem;">{% for issue in stripe_config.issues %}<li>{{ issue }}</li>{% endfor %}</ul></div>
+        <div class="alert danger compact-alert"><b>Setup issue</b><ul>{% for issue in stripe_config.issues %}<li>{{ issue }}</li>{% endfor %}</ul></div>
       {% endif %}
-      {% if stripe_status.error %}<div class="alert danger" style="margin:0;"><b>Status error</b><br>{{ stripe_status.error }}</div>{% endif %}
-
-      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
-        <div class="stat-card"><span>Mode</span><b>{{ stripe_config.mode|title }}</b></div>
-        <div class="stat-card"><span>Payout account</span><b>{% if current_user.stripe_account_id %}Created{% else %}Not started{% endif %}</b></div>
-        <div class="stat-card"><span>Website balance</span><b>{{ money(current_user.balance_cents) }}</b></div>
-        <div class="stat-card"><span>Cashouts</span><b>{% if current_user.stripe_payouts_enabled %}Enabled{% else %}Not ready{% endif %}</b></div>
-      </div>
-
-      {% if current_user.is_admin %}
-        <div class="muted dev-details" style="font-size:.92rem;line-height:1.55;">
-          {% if current_user.stripe_account_id %}<b>Connected account:</b> {{ current_user.stripe_account_id }}<br><b>Country:</b> {{ current_user.stripe_country or 'Not set' }}<br>{% endif %}
-          <b>Return URL:</b> {{ stripe_config.connect_return_url }}<br>
-          <b>Webhook URL:</b> {{ stripe_config.webhook_url }}
-        </div>
-      {% endif %}
-
+      {% if stripe_status.error %}<div class="alert danger compact-alert"><b>Status error</b><br>{{ stripe_status.error }}</div>{% endif %}
       {% if stripe_config.warnings %}
-        <div class="alert warning" style="margin:0;"><b>Warnings</b><ul style="margin:.5rem 0 0 1.2rem;">{% for warning in stripe_config.warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>
+        <div class="alert warning compact-alert"><b>Notice</b><ul>{% for warning in stripe_config.warnings %}<li>{{ warning }}</li>{% endfor %}</ul></div>
       {% endif %}
-      {% if stripe_status.disabled_reason %}<div class="alert warning" style="margin:0;"><b>Payout account notice:</b> {{ stripe_status.disabled_reason }}</div>{% endif %}
+      {% if stripe_status.disabled_reason %}<div class="alert warning compact-alert"><b>Payout account notice:</b> {{ stripe_status.disabled_reason }}</div>{% endif %}
       {% if stripe_status.currently_due or stripe_status.past_due %}
-        <div class="alert warning" style="margin:0;"><b>Action needed</b><ul style="margin:.5rem 0 0 1.2rem;">{% for item in stripe_status.past_due %}<li>{{ item }}</li>{% endfor %}{% for item in stripe_status.currently_due %}<li>{{ item }}</li>{% endfor %}</ul></div>
+        <div class="alert warning compact-alert"><b>Action needed</b><ul>{% for item in stripe_status.past_due %}<li>{{ item }}</li>{% endfor %}{% for item in stripe_status.currently_due %}<li>{{ item }}</li>{% endfor %}</ul></div>
       {% elif current_user.stripe_account_id and not current_user.stripe_payouts_enabled %}
-        <div class="alert warning" style="margin:0;">Your payout setup was started but is not ready yet. Continue onboarding to finish.</div>
+        <div class="alert warning compact-alert">Your payout setup is not ready yet. Continue Stripe setup to finish.</div>
       {% endif %}
       {% if stripe_status.pending_verification %}
-        <div class="alert info" style="margin:0;"><b>Pending verification</b><ul style="margin:.5rem 0 0 1.2rem;">{% for item in stripe_status.pending_verification %}<li>{{ item }}</li>{% endfor %}</ul></div>
+        <div class="alert info compact-alert"><b>Pending verification</b><ul>{% for item in stripe_status.pending_verification %}<li>{{ item }}</li>{% endfor %}</ul></div>
       {% endif %}
-
-      <div style="display:grid;gap:10px;">
-        <a class="btn full" href="{{ url_for('stripe_connect') }}">{% if current_user.stripe_account_id and not current_user.stripe_payouts_enabled %}Continue payout setup{% elif current_user.stripe_account_id %}Update payout setup{% else %}Connect payout account{% endif %}</a>
-        {% if current_user.stripe_account_id and current_user.stripe_onboarding_complete %}
-          <a class="btn ghost full" href="{{ url_for('stripe_express_dashboard') }}">Open payout dashboard</a>
-        {% elif current_user.stripe_account_id %}
-          <button class="btn ghost full" type="button" disabled title="Finish onboarding first">Payout dashboard unlocks after onboarding</button>
-        {% endif %}
-      </div>
     </div>
 
     {% if enable_manual_stripe_account_entry %}

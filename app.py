@@ -2392,25 +2392,8 @@ def stripe_connect_refresh():
 @app.route('/stripe/connect/dashboard')
 @login_required
 def stripe_express_dashboard():
-    user = current_user()
-    if not user.stripe_account_id:
-        flash('Connect Stripe first.', 'warning')
-        return redirect(url_for('settings'))
-    if not STRIPE_SECRET_KEY or not stripe:
-        flash('Stripe is not configured yet.', 'danger')
-        return redirect(url_for('settings'))
-    details = stripe_account_details(user)
-    if not user.stripe_onboarding_complete or details.get('currently_due') or details.get('past_due'):
-        flash('Your Stripe onboarding is not complete yet. Finish onboarding before opening the Express Dashboard.', 'warning')
-        return redirect(url_for('stripe_connect'))
-    try:
-        link = stripe.Account.create_login_link(user.stripe_account_id)
-        return redirect(link.url, code=303)
-    except Exception as exc:
-        message = stripe_exception_message(exc)
-        app.logger.warning('Stripe Express dashboard link failed: %s', message)
-        flash(message, 'danger')
-        return redirect(url_for('settings'))
+    flash('Stripe is used for payout setup only. Manage your ArcticSender balance and cashouts from Settings.', 'info')
+    return redirect(url_for('settings'))
 
 
 @app.route('/stripe/connect/reset', methods=['POST'])
@@ -2421,7 +2404,7 @@ def stripe_connect_reset():
         flash('There is no Stripe account to reset.', 'info')
         return redirect(url_for('settings'))
     if user.stripe_payouts_enabled or user.stripe_charges_enabled:
-        flash('This Stripe account already has payouts enabled, so it was not reset. Use Stripe Express Dashboard to manage bank details.', 'warning')
+        flash('This Stripe account already has payouts enabled, so it was not reset. Use Settings to update your payout setup.', 'warning')
         return redirect(url_for('settings'))
     old_account = user.stripe_account_id
     user.stripe_account_id = ''
