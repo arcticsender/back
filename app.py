@@ -137,6 +137,7 @@ if STRIPE_SECRET_KEY and stripe:
     stripe.api_key = STRIPE_SECRET_KEY
 
 db = SQLAlchemy(app)
+_mongo_client = None
 
 MIN_CASHOUT_CENTS = 1000
 SMALL_CASHOUT_LIMIT_CENTS = 3500
@@ -1129,19 +1130,46 @@ def mongo_config_status():
 
 
 def mongo_database():
+    """Return the configured Mongo database, reusing one client for speed.
+
+    SQLite is still the live SQLAlchemy database, but Mongo is treated as the
+    durable mirror on hosts where ./instance can be wiped during restarts.
+    """
+    global _mongo_client
     status = mongo_config_status()
     if not status['enabled']:
         return None
     try:
-        mongo_kwargs = {'serverSelectionTimeoutMS': 2500}
-        if certifi:
-            mongo_kwargs.update({'tls': True, 'tlsCAFile': certifi.where()})
-        client = MongoClient(MONGO_URI, **mongo_kwargs)
-        client.admin.command('ping')
-        return client[MONGO_DB_NAME]
+        if _mongo_client is None:
+            mongo_kwargs = {'serverSelectionTimeoutMS': 2500}
+            if certifi:
+                mongo_kwargs.update({'tls': True, 'tlsCAFile': certifi.where()})
+            _mongo_client = MongoClient(MONGO_URI, **mongo_kwargs)
+            _mongo_client.admin.command('ping')
+        return _mongo_client[MONGO_DB_NAME]
     except Exception as exc:
         app.logger.warning('MongoDB backup unavailable: %s', exc)
+        _mongo_client = None
         return None
+
+
+def mongo_models():
+    return [User, WishlistItem, CheckoutOrder, Contribution, CashoutRequest, PasswordResetToken]
+
+
+def parse_mongo_value(column, value):
+    if value is None:
+        return None
+    try:
+        python_type = column.type.python_type
+    except Exception:
+        python_type = None
+    if isinstance(value, str) and python_type is datetime:
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).replace(tzinfo=None)
+        except ValueError:
+            return None
+    return value
 
 
 def serialize_model(obj):
@@ -1175,8 +1203,7 @@ def mongo_backup_all():
     if database is None:
         return False
     try:
-        models = [User, WishlistItem, CheckoutOrder, Contribution, CashoutRequest]
-        for model in models:
+        for model in mongo_models():
             if ASCENDING:
                 database[model.__tablename__].create_index([('_sql_id', ASCENDING)], unique=True)
             for obj in model.query.all():
@@ -1189,6 +1216,53 @@ def mongo_backup_all():
     except Exception as exc:
         app.logger.warning('MongoDB full backup failed: %s', exc)
         return False
+
+
+def mongo_restore_model(model):
+    database = mongo_database()
+    if database is None:
+        return 0
+    restored = 0
+    try:
+        for doc in database[model.__tablename__].find({}).sort('_sql_id', 1):
+            sql_id = doc.get('_sql_id') or doc.get('id')
+            if not sql_id:
+                continue
+            obj = db.session.get(model, int(sql_id))
+            if obj is None:
+                obj = model()
+                obj.id = int(sql_id)
+                db.session.add(obj)
+            for column in model.__table__.columns:
+                if column.name in doc:
+                    setattr(obj, column.name, parse_mongo_value(column, doc[column.name]))
+            restored += 1
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.warning('MongoDB restore failed for %s: %s', model.__name__, exc)
+        return 0
+    return restored
+
+
+def mongo_restore_all_if_empty():
+    """Rebuild local SQLite from Mongo after a deploy/restart wiped instance data."""
+    if not mongo_config_status()['enabled']:
+        return False
+    try:
+        has_local_data = any(model.query.first() for model in mongo_models())
+    except Exception as exc:
+        app.logger.warning('Could not check local database before Mongo restore: %s', exc)
+        return False
+    if has_local_data:
+        return False
+    total = 0
+    # Parents first, children after, so foreign keys/relationships stay sane.
+    for model in mongo_models():
+        total += mongo_restore_model(model)
+    if total:
+        app.logger.info('Restored %s records from MongoDB into local SQLite.', total)
+    return bool(total)
 
 def credit_contribution(contribution, commit=True, send_email=True):
     if contribution.status == 'paid':
@@ -1398,6 +1472,7 @@ def verify_email():
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
+        mongo_backup_model(user)
         send_welcome_email(user)
         flash('Email verified. Your creator page is ready.', 'success')
         return redirect(url_for('dashboard'))
@@ -1441,6 +1516,7 @@ def login():
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
+        mongo_backup_model(user)
         flash('Welcome back.', 'success')
         return redirect(url_for('dashboard'))
     return render_template('login.html')
@@ -1519,6 +1595,7 @@ def verify_login():
         session['user_id'] = user.id
         user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
+        mongo_backup_model(user)
         flash('Welcome back.', 'success')
         return redirect(url_for('dashboard'))
     return render_template('verify_otp.html', purpose='login', email=user.email, title='Enter your login code')
@@ -2043,6 +2120,7 @@ def stripe_connect_reset():
     user.stripe_charges_enabled = False
     user.stripe_payouts_enabled = False
     db.session.commit()
+    mongo_backup_model(user)
     app.logger.warning('User %s reset incomplete Stripe connected account %s', user.id, old_account)
     flash('Incomplete Stripe setup was reset. You can start onboarding again now.', 'success')
     return redirect(url_for('settings'))
@@ -2080,6 +2158,8 @@ def cashout():
     user.pending_cashout_cents += amount_cents
     db.session.add(request_obj)
     db.session.commit()
+    mongo_backup_model(user)
+    mongo_backup_model(request_obj)
     flash(f'Cashout request created for {money(amount_cents)}. Fee: {money(fee_cents)}.', 'success')
     return redirect(url_for('dashboard'))
 
@@ -2382,8 +2462,9 @@ def start_self_ping_thread():
 with app.app_context():
     db.create_all()
     migrate_sqlite_columns()
+    restored_from_mongo = mongo_restore_all_if_empty()
     ensure_admin_account()
-    if mongo_config_status()['enabled']:
+    if mongo_config_status()['enabled'] and not restored_from_mongo:
         mongo_backup_all()
 
 start_self_ping_thread()

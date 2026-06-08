@@ -12,6 +12,16 @@
     });
   }
 
+
+  document.querySelectorAll('.flash').forEach((flash) => {
+    const close = () => {
+      flash.classList.add('is-hiding');
+      setTimeout(() => flash.remove(), 180);
+    };
+    flash.querySelector('.flash-close')?.addEventListener('click', close);
+    setTimeout(close, 2400);
+  });
+
   document.addEventListener('click', (event) => {
     const deleteButton = event.target.closest('form.inline button');
     if (deleteButton && deleteButton.textContent.trim().toLowerCase() === 'delete') {
@@ -30,7 +40,8 @@
   function resize() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
-    const count = reduceMotion ? 0 : Math.min(120, Math.floor(width / 12));
+    const isSmall = width < 720;
+    const count = reduceMotion ? 0 : Math.min(isSmall ? 28 : 70, Math.floor(width / (isSmall ? 24 : 18)));
     flakes = Array.from({ length: count }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -56,11 +67,12 @@
       ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       ctx.fill();
     });
-    requestAnimationFrame(draw);
+    if (!document.hidden) requestAnimationFrame(draw);
   }
 
   resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize, { passive: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) draw(); });
   draw();
 })();
 
