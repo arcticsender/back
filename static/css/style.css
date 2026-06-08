@@ -949,3 +949,32 @@ body:before{
   .mobile-auth-btn{height:30px!important;min-height:30px!important;max-height:30px!important;padding-left:8px!important;padding-right:8px!important;font-size:.63rem!important;border-radius:9px!important}
   .mobile-balance-pill{height:30px!important;min-height:30px!important;max-height:30px!important;max-width:68px!important;padding-left:7px!important;padding-right:7px!important;font-size:.62rem!important;border-radius:9px!important}
 }
+
+/* Mobile menu icon final fix: stack hamburger lines vertically */
+@media (max-width:720px){
+  .mobile-menu-btn{
+    display:inline-flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:3px!important;
+    font-size:0!important;
+    line-height:0!important;
+    overflow:hidden!important;
+  }
+  .mobile-menu-btn span{
+    display:block!important;
+    flex:0 0 2px!important;
+    width:14px!important;
+    height:2px!important;
+    min-height:2px!important;
+    margin:0!important;
+    padding:0!important;
+    border-radius:99px!important;
+    background:#eaffff!important;
+    opacity:1!important;
+    transform:none!important;
+  }
+  .mobile-menu-btn span:nth-child(2){width:12px!important;}
+  .mobile-menu-btn span:nth-child(3){width:14px!important;}
+}
