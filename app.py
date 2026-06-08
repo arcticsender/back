@@ -30,7 +30,7 @@ try:
 except ImportError:
     certifi = None
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -1543,6 +1543,35 @@ def create_cart_checkout_session(order, entries, success_url, cancel_url):
 @app.route('/healthz')
 def healthz():
     return jsonify({'ok': True, 'site': SITE_NAME, 'time': datetime.now(UTC).isoformat()})
+
+
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    sitemap_url = f"{BASE_URL}{url_for('sitemap_xml')}"
+    body = f"User-agent: *\nAllow: /\nSitemap: {sitemap_url}\n"
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    urls = [
+        (f"{BASE_URL}{url_for('home')}", 'daily', '1.0'),
+        (f"{BASE_URL}{url_for('register')}", 'weekly', '0.8'),
+        (f"{BASE_URL}{url_for('login')}", 'monthly', '0.4'),
+    ]
+    for user in User.query.filter_by(is_suspended=False).order_by(User.created_at.desc()).limit(500).all():
+        urls.append((f"{BASE_URL}{url_for('profile', username=user.username)}", 'daily', '0.9'))
+        urls.append((f"{BASE_URL}{url_for('public_leaderboard', username=user.username)}", 'daily', '0.7'))
+        urls.append((f"{BASE_URL}{url_for('donate', username=user.username)}", 'weekly', '0.7'))
+    for item in WishlistItem.query.filter_by(is_active=True).order_by(WishlistItem.created_at.desc()).limit(1000).all():
+        urls.append((f"{BASE_URL}{url_for('support_item', item_id=item.id)}", 'daily', '0.8'))
+    rows = []
+    for loc, changefreq, priority in urls:
+        rows.append(f"  <url><loc>{escape(loc)}</loc><changefreq>{changefreq}</changefreq><priority>{priority}</priority></url>")
+    xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n" + "\n".join(rows) + "\n</urlset>\n"
+    return Response(xml, mimetype='application/xml')
 
 
 @app.route('/')

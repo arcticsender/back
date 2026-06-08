@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}{{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block title %}{{ creator.display_name }} Wishlist | Cash Gifts on {{ site_name }}{% endblock %}
+{% block meta_description %}Send cash gifts, fund wishlist goals, and support {{ creator.display_name }} on {{ site_name }} with a clean private checkout and creator-friendly gifting page.{% endblock %}
+{% block og_type %}profile{% endblock %}
+{% block og_image %}{% if creator.banner_url %}{{ creator.banner_url }}{% elif creator.avatar_url %}{{ creator.avatar_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
+{% block og_image_alt %}{{ creator.display_name }} creator gift page on {{ site_name }}{% endblock %}
 {% block content %}
 <section class="creator-page section">
   <div class="creator-shell">

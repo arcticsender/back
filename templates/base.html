@@ -3,15 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  <title>{% block title %}{{ site_name }} | Creator Cash Gifts, Wishlists & Stripe Payouts{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}ArcticSender is a cleaner, faster creator cash gift wishlist and Throne alternative with private checkout, gift carts, Stripe Connect payouts, and polished share pages.{% endblock %}">
+  <meta name="keywords" content="creator wishlist, cash gifts, creator gifts, wishlist platform, Throne alternative, Stripe Connect payouts, fan support, ArcticSender">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="{% block canonical_url %}{{ request.url }}{% endblock %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
-  <meta property="og:image" content="{{ url_for('static', filename='img/logo-banner.png', _external=True) }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:site_name" content="{{ site_name }}">
+  <meta property="og:title" content="{{ self.title()|striptags|trim }}">
+  <meta property="og:description" content="{{ self.meta_description()|striptags|trim }}">
+  <meta property="og:url" content="{{ self.canonical_url()|striptags|trim }}">
+  <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endblock %}">
+  <meta property="og:image:alt" content="{% block og_image_alt %}{{ site_name }} creator gifting platform{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
+  <meta name="twitter:description" content="{{ self.meta_description()|striptags|trim }}">
+  <meta name="twitter:image" content="{{ self.og_image()|striptags|trim }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and Stripe Connect payouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
+  </script>
+  {% block head_extra %}{% endblock %}
 </head>
 <body>
   <canvas id="snow-canvas" aria-hidden="true"></canvas>

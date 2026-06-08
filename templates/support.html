@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}{{ item.title }} | {{ site_name }}{% endblock %}
+{% block title %}{{ item.title }} for {{ item.creator.display_name }} | {{ site_name }}{% endblock %}
+{% block meta_description %}Support {{ item.creator.display_name }} by adding {{ item.title }} to your {{ site_name }} cart. Clean cash gifting, private checkout, and creator-friendly wishlist support.{% endblock %}
+{% block og_type %}product{% endblock %}
+{% block og_image %}{% if item.image_url %}{{ item.image_url }}{% elif item.creator.banner_url %}{{ item.creator.banner_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
+{% block og_image_alt %}{{ item.title }} cash gift for {{ item.creator.display_name }}{% endblock %}
 {% block content %}
 <section class="section gift-detail-section">
   <div class="gift-detail-card frost-card">

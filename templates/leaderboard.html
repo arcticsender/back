@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}Gifters for {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block title %}{{ creator.display_name }} Gifters Leaderboard | {{ site_name }}{% endblock %}
+{% block meta_description %}See the named gifters supporting {{ creator.display_name }} on {{ site_name }}. Anonymous gifts stay private while public supporters can appear on the leaderboard.{% endblock %}
+{% block og_image %}{% if creator.banner_url %}{{ creator.banner_url }}{% elif creator.avatar_url %}{{ creator.avatar_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
+{% block og_image_alt %}{{ creator.display_name }} gifters leaderboard on {{ site_name }}{% endblock %}
 {% block content %}
 <section class="creator-page section leaderboard-creator-page">
   <div class="creator-shell">

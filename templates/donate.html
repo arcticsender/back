@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
-{% block title %}Custom Gift to {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block title %}Send a Custom Cash Gift to {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block meta_description %}Send a custom cash gift to {{ creator.display_name }} through {{ site_name }} with a clean cart and private checkout experience.{% endblock %}
+{% block og_image %}{% if creator.banner_url %}{{ creator.banner_url }}{% elif creator.avatar_url %}{{ creator.avatar_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
 {% block content %}
 <section class="creator-page section custom-gift-page">
   <div class="creator-shell">

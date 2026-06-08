@@ -1,12 +1,13 @@
 {% extends 'base.html' %}
-{% block title %}{{ site_name }} | Premium Cash Gifts for Creators{% endblock %}
+{% block title %}{{ site_name }} | Better Creator Cash Gifts Than Throne-Style Wishlists{% endblock %}
+{% block meta_description %}Create a premium creator cash gift page with wishlist items, carts, private sender details, Stripe Connect payouts, and a cleaner experience built to feel better than Throne.{% endblock %}
 {% block content %}
 <section class="hero section home-hero-clean">
   <div class="hero-copy">
     <img class="hero-brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt="ArcticSender logo">
     <div class="pill">Private creator gifting</div>
     <h1>Clean cash gifts for creators.</h1>
-    <p>{{ site_name }} gives creators a polished gift page, private sender handling, cart checkout, Stripe Connect payouts, and simple sharing without the messy dashboard clutter.</p>
+    <p>{{ site_name }} gives creators a polished gift page, private sender handling, cart checkout, Stripe Connect payouts, and simple sharing without the messy dashboard clutter. Built to feel better than Throne for creators who want a simpler cash-first wishlist.</p>
     <div class="hero-actions">
       <a class="btn" href="{{ url_for('register') }}">Create your page</a>
       {% if current_user %}<a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}">View my page</a>{% else %}<a class="btn ghost" href="{{ url_for('login') }}">Login</a>{% endif %}
@@ -26,6 +27,11 @@
 <section class="section split-cards home-feature-strip">
   <a class="feature-card interactive-card" href="{{ url_for('register') }}"><h3>Fast setup</h3><p>Create a page, add cash gifts, and connect Stripe-hosted onboarding.</p></a>
   <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('settings') }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Private by default</h3><p>Emails and payment details stay hidden. Public names only show when supporters choose them.</p></a>
-  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Share anywhere</h3><p>Cleaner pages, carts, goals, recent sends, and a separate named leaderboard.</p></a>
+  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Better than bulky wishlists</h3><p>A cleaner Throne alternative with cash gifts, carts, goals, and a named Gifters leaderboard.</p></a>
 </section>
+<section class="home-seo-strip">
+  <h2>A cleaner cash-gift wishlist for creators</h2>
+  <p>ArcticSender is built as a faster, simpler creator wishlist and Throne alternative: supporters can add cash gifts to a cart, send custom gifts, fund goals, and check out privately while creators keep a polished public page and Stripe Connect payouts.</p>
+</section>
+
 {% endblock %}
