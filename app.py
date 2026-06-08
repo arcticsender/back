@@ -99,7 +99,11 @@ STRIPE_AUTO_TRANSFERS = os.getenv('STRIPE_AUTO_TRANSFERS', 'false').lower() == '
 # connected Stripe balance immediately.
 STRIPE_CONNECT_DIRECT_PAYOUTS = os.getenv('STRIPE_CONNECT_DIRECT_PAYOUTS', 'false').lower() == 'true'
 STRIPE_DEFAULT_COUNTRY = os.getenv('STRIPE_DEFAULT_COUNTRY', 'CA').upper().strip() or 'CA'
-PLATFORM_FEE_PERCENT = Decimal(os.getenv('PLATFORM_FEE_PERCENT', '10'))
+# ArcticSender uses a fixed sender-covered 10% processing fee.
+# Do not read the old PLATFORM_FEE_PERCENT env var here because older deployments
+# may still have it set to 5, which would make checkout totals wrong.
+PLATFORM_FEE_PERCENT = Decimal('10')
+STRIPE_EMBEDDED_CHECKOUT = os.getenv('STRIPE_EMBEDDED_CHECKOUT', 'true').lower() == 'true'
 AUTO_ADMIN_FIRST_USER = os.getenv('AUTO_ADMIN_FIRST_USER', 'true').lower() == 'true'
 APP_ENV = os.getenv('APP_ENV', 'development').lower()
 REQUIRE_STRIPE_PAYMENTS = os.getenv('REQUIRE_STRIPE_PAYMENTS', 'true' if APP_ENV == 'production' else 'false').lower() == 'true'
@@ -1616,7 +1620,7 @@ def create_checkout_session(contribution, title, success_url, cancel_url):
     return session_obj
 
 
-def create_cart_checkout_session(order, entries, success_url, cancel_url):
+def create_cart_checkout_session(order, entries, success_url, cancel_url, embedded=False):
     if not STRIPE_SECRET_KEY or not stripe:
         return None
     line_items = []
@@ -1656,16 +1660,27 @@ def create_cart_checkout_session(order, entries, success_url, cancel_url):
             'transfer_data': {'destination': order.creator.stripe_account_id},
         })
 
-    session_obj = stripe.checkout.Session.create(
-        mode='payment',
-        payment_method_types=['card'],
-        customer_email=order.supporter_email or None,
-        line_items=line_items,
-        payment_intent_data=payment_intent_data,
-        metadata={'order_id': str(order.id), 'creator_id': str(order.creator_id)},
-        success_url=success_url,
-        cancel_url=cancel_url,
-    )
+    session_payload = {
+        'mode': 'payment',
+        'payment_method_types': ['card'],
+        'customer_email': order.supporter_email or None,
+        'line_items': line_items,
+        'payment_intent_data': payment_intent_data,
+        'metadata': {'order_id': str(order.id), 'creator_id': str(order.creator_id)},
+    }
+    if embedded:
+        # Embedded Checkout keeps the supporter on-site. Stripe will return here
+        # after payment or after a redirect-based payment method completes.
+        session_payload.update({
+            'ui_mode': 'embedded',
+            'return_url': success_url + '?session_id={CHECKOUT_SESSION_ID}',
+        })
+    else:
+        session_payload.update({
+            'success_url': success_url,
+            'cancel_url': cancel_url,
+        })
+    session_obj = stripe.checkout.Session.create(**session_payload)
     order.stripe_session_id = session_obj.id
     for contribution in order.contributions:
         contribution.stripe_session_id = session_obj.id
@@ -2363,13 +2378,27 @@ def checkout(username):
         for contribution in order.contributions:
             mongo_backup_model(contribution)
         if STRIPE_SECRET_KEY and stripe:
+            use_embedded_checkout = bool(STRIPE_EMBEDDED_CHECKOUT and STRIPE_PUBLISHABLE_KEY)
             checkout_session = create_cart_checkout_session(
                 order,
                 entries,
                 f'{BASE_URL}{url_for("cart_success", token=order.token)}',
-                f'{BASE_URL}{url_for("checkout", username=creator.username)}'
+                f'{BASE_URL}{url_for("checkout", username=creator.username)}',
+                embedded=use_embedded_checkout,
             )
             clear_cart()
+            if use_embedded_checkout and getattr(checkout_session, 'client_secret', None):
+                return render_template(
+                    'embedded_checkout.html',
+                    creator=creator,
+                    order=order,
+                    contributions=order.contributions,
+                    checkout_session=checkout_session,
+                    stripe_publishable_key=STRIPE_PUBLISHABLE_KEY,
+                    total_cents=total_cents,
+                    fee_cents=fee_cents,
+                    checkout_total_cents=total_cents + fee_cents,
+                )
             return redirect(checkout_session.url, code=303)
         if REQUIRE_STRIPE_PAYMENTS:
             for contribution in list(order.contributions):

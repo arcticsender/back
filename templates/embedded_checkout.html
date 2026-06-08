@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Secure payment | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head dash-head embedded-checkout-head">
+  <div>
+    <div class="pill">Secure payment</div>
+    <h1>Complete your gift</h1>
+    <p>Pay securely below without leaving {{ site_name }}.</p>
+  </div>
+</section>
+
+<section class="section embedded-checkout-wrap">
+  <aside class="panel frost-card embedded-summary-card">
+    <div class="section-head mini"><h2>Summary</h2><span>{{ contributions|length }} item{% if contributions|length != 1 %}s{% endif %}</span></div>
+    <div class="embedded-mini-list">
+      {% for contribution in contributions %}
+        {% set gift = contribution.item %}
+        <div class="checkout-item-mini">
+          <img src="{{ gift.image_url if gift and gift.image_url else default_gift_image_url() }}" alt="{{ gift.title if gift else 'Gift' }} image" loading="lazy">
+          <div>
+            <b>{{ gift.title if gift else 'Custom gift' }}</b>
+            <span>{{ contribution.supporter_name or 'Anonymous' }}</span>
+          </div>
+          <strong>{{ money(contribution.amount_cents) }}</strong>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="checkout-money-lines compact">
+      <div class="money-line"><span>Gift amount</span><b>{{ money(total_cents) }}</b></div>
+      <div class="money-line"><span>Processing fee <small>{{ platform_fee_percent }}%</small></span><b>{{ money(fee_cents) }}</b></div>
+      <div class="money-line total"><span>You pay</span><b>{{ money(checkout_total_cents) }}</b></div>
+      <div class="money-line creator-keeps"><span>Creator receives</span><b>{{ money(total_cents) }}</b></div>
+    </div>
+    <p class="muted tiny-note">The processing fee is covered by the sender so the creator receives the full gift amount in their website balance.</p>
+  </aside>
+
+  <div class="panel frost-card embedded-payment-card">
+    <div id="embedded-checkout"></div>
+    <noscript><p class="muted">JavaScript is required to complete secure card payment.</p></noscript>
+  </div>
+</section>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(async function () {
+  const stripe = Stripe({{ stripe_publishable_key|tojson }});
+  const checkout = await stripe.initEmbeddedCheckout({
+    clientSecret: {{ checkout_session.client_secret|tojson }}
+  });
+  checkout.mount('#embedded-checkout');
+})();
+</script>
+{% endblock %}
