@@ -1,40 +1,39 @@
 {% extends 'base.html' %}
-{% block title %}Add Gift to Cart | {{ site_name }}{% endblock %}
+{% block title %}{{ item.title }} | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="support-layout section support-clean">
-  <div class="item-card large-card frost-card support-preview">
-    <div class="item-image tall">
+<section class="section gift-detail-section">
+  <div class="gift-detail-card frost-card">
+    <div class="gift-detail-media">
       {% if item.image_url %}
         <img src="{{ item.image_url }}" alt="{{ item.title }} gift image" loading="lazy">
       {% else %}
         <span class="item-image-placeholder">🎁</span>
       {% endif %}
+      <span class="gift-chip">{{ item.type_label }}</span>
     </div>
-    <div class="item-body">
-      <div class="pill">{{ item.type_label }} for @{{ item.creator.username }}</div>
+    <form class="gift-detail-body" method="post">
+      <div class="gift-detail-top">
+        <a class="pill" href="{{ url_for('profile', username=item.creator.username) }}">@{{ item.creator.username }}</a>
+        <strong>{{ money(item.price_cents) }}</strong>
+      </div>
       <h1>{{ item.title }}</h1>
-      <p>{{ item.description }}</p>
+      {% if item.description %}<p>{{ item.description }}</p>{% endif %}
+
       {% if item.gift_type == 'goal' %}
         <div class="bar"><span style="width:{{ item.progress }}%"></span></div>
-        <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.price_cents) }} target</span></div>
+        <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.remaining_cents) }} left</span></div>
+        <label>Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
       {% else %}
-        <div class="item-meta single-stock"><span>{{ item.sold_count }} bought</span><span>{{ item.remaining_stock }} of {{ item.stock_limit }} left</span></div>
+        <div class="locked-amount"><span>Single gift amount</span><strong>{{ money(item.price_cents) }}</strong><small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small></div>
       {% endif %}
-      {% if item.product_url %}<a href="{{ item.product_url }}" target="_blank" rel="noopener">View reference</a>{% endif %}
-    </div>
+
+      {% if item.product_url %}<a class="reference-link" href="{{ item.product_url }}" target="_blank" rel="noopener">View reference link</a>{% endif %}
+      <div class="gift-detail-actions">
+        <button class="btn full">Add to cart</button>
+        <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.url }}">Share this gift</button>
+      </div>
+      <a class="back-link" href="{{ url_for('profile', username=item.creator.username) }}">← Back to {{ item.creator.display_name }}</a>
+    </form>
   </div>
-  <form class="panel form frost-card checkout-card" method="post">
-    <div class="pill">Add to cart</div>
-    <h2>Gift {{ item.creator.display_name }}</h2>
-    <p class="muted">Add this cash gift to your cart, then checkout once with your receipt email and optional public username.</p>
-    {% if item.gift_type == 'goal' %}
-      <label>Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
-    {% else %}
-      <div class="locked-amount"><span>Single gift amount</span><strong>{{ money(item.price_cents) }}</strong><small>{{ item.remaining_stock }} available</small></div>
-    {% endif %}
-    <button class="btn full">Add to cart</button>
-    <button type="button" class="btn ghost full share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.url }}">Share this gift</button>
-    <p class="muted"><a href="{{ url_for('profile', username=item.creator.username) }}">Back to creator page</a></p>
-  </form>
 </section>
 {% endblock %}
