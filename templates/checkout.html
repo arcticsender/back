@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Checkout for {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head dash-head checkout-hero-clean">
+  <div>
+    <div class="pill">Secure checkout</div>
+    <h1>Checkout</h1>
+    <p>Confirm your receipt email, optional public name, and message before paying securely through Stripe.</p>
+  </div>
+  <div class="head-actions"><a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Back to cart</a></div>
+</section>
+
+<section class="section checkout-page-clean">
+  <aside class="panel frost-card checkout-summary-card">
+    <div class="section-head mini"><h2>Order summary</h2><span>{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span></div>
+    {% for entry in entries %}
+      <div class="summary-line"><span>{{ entry.title }}</span><b>{{ money(entry.amount_cents) }}</b></div>
+    {% endfor %}
+    <div class="cart-total clean-cart-total"><span>Total</span><b>{{ money(total_cents) }}</b></div>
+    <p class="muted tiny-note">{{ site_name }} keeps a {{ platform_fee_percent }}% platform fee. Stripe securely processes the payment and handles creator payouts through Connect.</p>
+  </aside>
+
+  <form class="panel form frost-card checkout-form-card" method="post">
+    <div class="pill">Payment info</div>
+    <h2>Sender details</h2>
+    <p class="muted">Your email is private and only used for your receipt/payment support. The creator only sees the optional public username and message.</p>
+    <label>Public username shown to creator, optional<input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
+    <label>Email for receipt, private<input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
+    <label>Checkout currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select></label>
+    <p class="currency-note muted">Creator balance is credited in USD. Currency conversion is estimated before Stripe checkout.</p>
+    <label>Message, optional<textarea name="message" rows="4" maxlength="500" placeholder="Write a nice note..."></textarea></label>
+    <button class="btn full" type="submit">Pay securely</button>
+  </form>
+</section>
+{% endblock %}

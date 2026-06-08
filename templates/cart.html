@@ -1,42 +1,46 @@
 {% extends 'base.html' %}
-{% block title %}Gift Cart for {{ creator.display_name }} | {{ site_name }}{% endblock %}
+{% block title %}Cart for {{ creator.display_name }} | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="section page-head dash-head">
+<section class="section page-head dash-head cart-hero-clean">
   <div>
     <div class="pill">Gift cart</div>
-    <h1>Checkout for {{ creator.display_name }}</h1>
-    <p>Cart checkout keeps gifting clean: add multiple cash gifts, choose currency once, then pay securely through Stripe.</p>
+    <h1>Your cart</h1>
+    <p>Review the gifts you picked for {{ creator.display_name }}. Checkout is on the next clean step.</p>
   </div>
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('profile', username=creator.username) }}">Add more gifts</a></div>
 </section>
-<section class="section support-layout compact">
-  <div class="panel list frost-card">
-    <div class="section-head mini"><h2>Your cart</h2><span>{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span></div>
+
+<section class="section cart-page-clean">
+  <div class="panel frost-card cart-list-panel">
+    <div class="section-head mini">
+      <div><span class="pill">{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span><h2>Gift summary</h2></div>
+      {% if entries %}<strong>{{ money(total_cents) }}</strong>{% endif %}
+    </div>
+
     {% for entry in entries %}
-      <div class="cart-row">
-        <div><b>{{ entry.title }}</b><span>{{ entry.type_label }}</span></div>
+      <div class="cart-row clean-cart-row">
+        <div class="cart-item-copy">
+          <b>{{ entry.title }}</b>
+          <span>{{ entry.type_label }}</span>
+        </div>
         <strong>{{ money(entry.amount_cents) }}</strong>
-        <form method="post" action="{{ url_for('cart_remove', username=creator.username, index=entry.idx) }}" class="inline"><button>Remove</button></form>
+        <form method="post" action="{{ url_for('cart_remove', username=creator.username, index=entry.idx) }}" class="inline"><button class="ghost" type="submit">Remove</button></form>
       </div>
     {% else %}
-      <p class="muted">Your cart is empty. Add a cash gift from {{ creator.display_name }}’s page.</p>
+      <div class="empty clean-empty-cart">
+        <h2>Your cart is empty.</h2>
+        <p class="muted">Add a cash gift from {{ creator.display_name }}’s page, then come back here to review it.</p>
+        <a class="btn" href="{{ url_for('profile', username=creator.username) }}">Browse gifts</a>
+      </div>
     {% endfor %}
+
     {% if entries %}
-      <div class="cart-total"><span>Gift total</span><b>{{ money(total_cents) }}</b></div>
-      <p class="muted">ArcticSender keeps a {{ platform_fee_percent }}% platform fee. Stripe securely processes the payment and handles creator payouts through Connect.</p>
-      <form method="post" action="{{ url_for('cart_clear', username=creator.username) }}"><button class="btn ghost full">Clear cart</button></form>
+      <div class="cart-total clean-cart-total"><span>Total</span><b>{{ money(total_cents) }}</b></div>
+      <div class="cart-actions-clean">
+        <form method="post" action="{{ url_for('cart_clear', username=creator.username) }}"><button class="btn ghost full" type="submit">Clear cart</button></form>
+        <a class="btn full" href="{{ url_for('checkout', username=creator.username) }}">Continue to checkout</a>
+      </div>
     {% endif %}
   </div>
-  <form class="panel form frost-card" method="post">
-    <div class="pill">Secure checkout</div>
-    <h2>Payment details</h2>
-    <p class="muted">Your email is only used for your receipt and payment support. Creators only see the optional public username below.</p>
-    <label>Public username shown to creator, optional<input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
-    <label>Email for receipt, private<input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
-    <label>Checkout currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select></label>
-    <p class="currency-note muted">Creator balance is credited in USD. Currency conversion is estimated before Stripe checkout.</p>
-    <label>Message, optional<textarea name="message" rows="4" maxlength="500" placeholder="Write a nice note..."></textarea></label>
-    <button class="btn full" {% if not entries %}disabled{% endif %}>Pay</button>
-  </form>
 </section>
 {% endblock %}

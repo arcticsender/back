@@ -2009,19 +2009,26 @@ def global_cart():
     return render_template('global_cart.html')
 
 
-@app.route('/cart/<username>', methods=['GET', 'POST'])
+@app.route('/cart/<username>')
 def cart(username):
     creator = User.query.filter_by(username=username).first_or_404()
     entries = cart_entries_for_creator(creator)
+    return render_template('cart.html', creator=creator, entries=entries, total_cents=sum(e['amount_cents'] for e in entries))
+
+
+@app.route('/checkout/<username>', methods=['GET', 'POST'])
+def checkout(username):
+    creator = User.query.filter_by(username=username).first_or_404()
+    entries = cart_entries_for_creator(creator)
+    total_cents = sum(e['amount_cents'] for e in entries)
+    if not entries:
+        flash('Your cart is empty. Add a gift before checkout.', 'warning')
+        return redirect(url_for('cart', username=creator.username))
     if request.method == 'POST':
-        if not entries:
-            flash('Your cart is empty.', 'warning')
-            return redirect(url_for('profile', username=creator.username))
         public_name = safe_public_sender(request.form.get('supporter_name', ''))
         supporter_email = request.form.get('supporter_email', '').strip()[:140]
         message = request.form.get('message', '').strip()[:500]
         currency = normalize_currency(request.form.get('currency', 'usd'))
-        total_cents = sum(e['amount_cents'] for e in entries)
         if total_cents < MIN_GIFT_CENTS:
             flash('Minimum gift amount is $1.00 USD.', 'danger')
             return redirect(url_for('cart', username=creator.username))
@@ -2040,6 +2047,7 @@ def cart(username):
             if not item or item.remaining_stock < requested_count:
                 flash('One of the single purchase gifts just sold out. Please review your cart.', 'warning')
                 return redirect(url_for('cart', username=creator.username))
+        charged_total = convert_usd_to_currency_cents(total_cents, currency)
         order = CheckoutOrder(
             token=secrets.token_urlsafe(18),
             creator_id=creator.id,
@@ -2047,13 +2055,14 @@ def cart(username):
             supporter_email=supporter_email,
             message=message,
             total_amount_cents=total_cents,
-            charged_amount_cents=convert_usd_to_currency_cents(total_cents, currency),
-            platform_fee_cents=platform_fee_for_cents(convert_usd_to_currency_cents(total_cents, currency)),
+            charged_amount_cents=charged_total,
+            platform_fee_cents=platform_fee_for_cents(charged_total),
             currency=currency,
         )
         db.session.add(order)
         db.session.flush()
         for e in entries:
+            charged_amount = convert_usd_to_currency_cents(e['amount_cents'], currency)
             contribution = Contribution(
                 creator_id=creator.id,
                 item_id=e['item'].id if e.get('item') else None,
@@ -2064,8 +2073,8 @@ def cart(username):
                 message=message,
                 amount_cents=e['amount_cents'],
                 currency=currency,
-                charged_amount_cents=convert_usd_to_currency_cents(e['amount_cents'], currency),
-                platform_fee_cents=platform_fee_for_cents(convert_usd_to_currency_cents(e['amount_cents'], currency)),
+                charged_amount_cents=charged_amount,
+                platform_fee_cents=platform_fee_for_cents(charged_amount),
             )
             db.session.add(contribution)
         db.session.commit()
@@ -2073,26 +2082,26 @@ def cart(username):
         for contribution in order.contributions:
             mongo_backup_model(contribution)
         if STRIPE_SECRET_KEY and stripe:
-            checkout = create_cart_checkout_session(
+            checkout_session = create_cart_checkout_session(
                 order,
                 entries,
                 f'{BASE_URL}{url_for("cart_success", token=order.token)}',
-                f'{BASE_URL}{url_for("cart", username=creator.username)}'
+                f'{BASE_URL}{url_for("checkout", username=creator.username)}'
             )
             clear_cart()
-            return redirect(checkout.url, code=303)
+            return redirect(checkout_session.url, code=303)
         if REQUIRE_STRIPE_PAYMENTS:
             for contribution in list(order.contributions):
                 db.session.delete(contribution)
             db.session.delete(order)
             db.session.commit()
             flash('Payments are temporarily unavailable. Please try again later.', 'danger')
-            return redirect(url_for('cart', username=creator.username))
+            return redirect(url_for('checkout', username=creator.username))
         credit_order(order)
         clear_cart()
         flash('Demo cart payment complete. Add Stripe keys before going live.', 'success')
         return redirect(url_for('cart_success', token=order.token))
-    return render_template('cart.html', creator=creator, entries=entries, total_cents=sum(e['amount_cents'] for e in entries))
+    return render_template('checkout.html', creator=creator, entries=entries, total_cents=total_cents)
 
 
 @app.route('/cart/<username>/remove/<int:index>', methods=['POST'])
