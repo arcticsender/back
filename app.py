@@ -99,7 +99,7 @@ STRIPE_AUTO_TRANSFERS = os.getenv('STRIPE_AUTO_TRANSFERS', 'false').lower() == '
 # connected Stripe balance immediately.
 STRIPE_CONNECT_DIRECT_PAYOUTS = os.getenv('STRIPE_CONNECT_DIRECT_PAYOUTS', 'false').lower() == 'true'
 STRIPE_DEFAULT_COUNTRY = os.getenv('STRIPE_DEFAULT_COUNTRY', 'CA').upper().strip() or 'CA'
-PLATFORM_FEE_PERCENT = Decimal(os.getenv('PLATFORM_FEE_PERCENT', '2'))
+PLATFORM_FEE_PERCENT = Decimal(os.getenv('PLATFORM_FEE_PERCENT', '10'))
 AUTO_ADMIN_FIRST_USER = os.getenv('AUTO_ADMIN_FIRST_USER', 'true').lower() == 'true'
 APP_ENV = os.getenv('APP_ENV', 'development').lower()
 REQUIRE_STRIPE_PAYMENTS = os.getenv('REQUIRE_STRIPE_PAYMENTS', 'true' if APP_ENV == 'production' else 'false').lower() == 'true'
@@ -396,6 +396,16 @@ def platform_fee_for_cents(amount_cents):
         return 0
 
 
+def checkout_fee_for_total_cents(total_cents):
+    # Sender-covered platform fee. The creator ledger is credited the gift total,
+    # while the sender pays this extra amount at checkout.
+    return platform_fee_for_cents(total_cents)
+
+
+def checkout_payable_total_cents(total_cents):
+    return max(0, int(total_cents or 0)) + checkout_fee_for_total_cents(total_cents)
+
+
 def creator_stripe_ready(user):
     if not user or not user.stripe_account_id:
         return False
@@ -628,12 +638,30 @@ def cart_entries_for_creator(creator):
             if amount_cents < MIN_GIFT_CENTS:
                 changed = True
                 continue
-            entries.append({'idx': idx, 'kind': 'item', 'item': item, 'title': item.title, 'type_label': item.type_label, 'amount_cents': amount_cents})
+            entries.append({
+                'idx': idx,
+                'kind': 'item',
+                'item': item,
+                'title': item.title,
+                'type_label': item.type_label,
+                'amount_cents': amount_cents,
+                'image_url': item.image_url or default_gift_image_url(),
+                'description': (item.description or '').strip(),
+            })
         elif entry.get('kind') == 'custom':
             if amount_cents < MIN_GIFT_CENTS:
                 changed = True
                 continue
-            entries.append({'idx': idx, 'kind': 'custom', 'item': None, 'title': 'Custom profile donation', 'type_label': 'Custom donation', 'amount_cents': amount_cents})
+            entries.append({
+                'idx': idx,
+                'kind': 'custom',
+                'item': None,
+                'title': 'Custom cash gift',
+                'type_label': 'Custom amount',
+                'amount_cents': amount_cents,
+                'image_url': default_gift_image_url(),
+                'description': f'A direct cash gift for {creator.display_name}.',
+            })
     if changed:
         cart['items'] = [cart['items'][e['idx']] for e in entries]
         save_cart(cart)
@@ -1601,7 +1629,21 @@ def create_cart_checkout_session(order, entries, success_url, cancel_url):
                 'unit_amount': charged_cents,
                 'product_data': {
                     'name': entry['title'][:120],
-                    'description': f'{SITE_NAME} cash gift to @{order.creator.username}'[:500],
+                    'description': (str(entry.get('type_label') or 'Cash gift') + f' for @{order.creator.username}')[:500],
+                },
+            },
+        })
+
+    fee_line_cents = convert_usd_to_currency_cents(order.platform_fee_cents, order.currency) if order.platform_fee_cents else 0
+    if fee_line_cents:
+        line_items.append({
+            'quantity': 1,
+            'price_data': {
+                'currency': order.currency,
+                'unit_amount': fee_line_cents,
+                'product_data': {
+                    'name': f'{SITE_NAME} processing fee',
+                    'description': 'Sender-covered platform fee so the creator receives the full gift amount.'[:500],
                 },
             },
         })
@@ -2283,7 +2325,10 @@ def checkout(username):
             if not item or item.remaining_stock < requested_count:
                 flash('One of the single purchase gifts just sold out. Please review your cart.', 'warning')
                 return redirect(url_for('cart', username=creator.username))
-        charged_total = convert_usd_to_currency_cents(total_cents, currency)
+        fee_cents = checkout_fee_for_total_cents(total_cents)
+        charged_items_total = sum(convert_usd_to_currency_cents(e['amount_cents'], currency) for e in entries)
+        charged_fee_cents = convert_usd_to_currency_cents(fee_cents, currency) if fee_cents else 0
+        charged_total = charged_items_total + charged_fee_cents
         order = CheckoutOrder(
             token=secrets.token_urlsafe(18),
             creator_id=creator.id,
@@ -2292,7 +2337,7 @@ def checkout(username):
             message=message,
             total_amount_cents=total_cents,
             charged_amount_cents=charged_total,
-            platform_fee_cents=platform_fee_for_cents(charged_total),
+            platform_fee_cents=fee_cents,
             currency=currency,
         )
         db.session.add(order)
@@ -2337,7 +2382,9 @@ def checkout(username):
         clear_cart()
         flash('Demo cart payment complete. Add Stripe keys before going live.', 'success')
         return redirect(url_for('cart_success', token=order.token))
-    return render_template('checkout.html', creator=creator, entries=entries, total_cents=total_cents)
+    fee_cents = checkout_fee_for_total_cents(total_cents)
+    checkout_total_cents = total_cents + fee_cents
+    return render_template('checkout.html', creator=creator, entries=entries, total_cents=total_cents, fee_cents=fee_cents, checkout_total_cents=checkout_total_cents)
 
 
 @app.route('/cart/<username>/remove/<int:index>', methods=['POST'])

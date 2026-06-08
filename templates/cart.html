@@ -5,27 +5,31 @@
   <div>
     <div class="pill">Gift cart</div>
     <h1>Your cart</h1>
-    <p>Review your gifts before checkout.</p>
+    <p>Review your gifts before secure checkout.</p>
   </div>
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('profile', username=creator.username) }}">Add more gifts</a></div>
 </section>
 
-<section class="section cart-page-clean">
-  <div class="panel frost-card cart-list-panel">
-    <div class="section-head mini">
+<section class="section cart-page-clean cart-redesign">
+  <div class="panel frost-card cart-list-panel cart-main-card">
+    <div class="section-head mini cart-title-row">
       <div><span class="pill">{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span><h2>Gift summary</h2></div>
       {% if entries %}<strong>{{ money(total_cents) }}</strong>{% endif %}
     </div>
 
     {% for entry in entries %}
-      <div class="cart-row clean-cart-row">
+      <article class="clean-cart-row cart-product-row">
+        <div class="cart-product-img">
+          <img src="{{ entry.image_url or default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
+        </div>
         <div class="cart-item-copy">
           <b>{{ entry.title }}</b>
           <span>{{ entry.type_label }}</span>
+          {% if entry.description %}<p>{{ entry.description }}</p>{% endif %}
         </div>
         <strong>{{ money(entry.amount_cents) }}</strong>
-        <form method="post" action="{{ url_for('cart_remove', username=creator.username, index=entry.idx) }}" class="inline"><button class="ghost" type="submit">Remove</button></form>
-      </div>
+        <form method="post" action="{{ url_for('cart_remove', username=creator.username, index=entry.idx) }}" class="inline cart-remove-form"><button class="ghost" type="submit">Remove</button></form>
+      </article>
     {% else %}
       <div class="empty clean-empty-cart">
         <h2>Your cart is empty.</h2>
@@ -35,7 +39,10 @@
     {% endfor %}
 
     {% if entries %}
-      <div class="cart-total clean-cart-total"><span>Total</span><b>{{ money(total_cents) }}</b></div>
+      <div class="cart-total-stack">
+        <div class="cart-total clean-cart-total"><span>Gift total</span><b>{{ money(total_cents) }}</b></div>
+        <p class="muted tiny-note">A {{ platform_fee_percent }}% processing fee is added at checkout so {{ creator.display_name }} receives the full gift amount.</p>
+      </div>
       <div class="cart-actions-clean">
         <form method="post" action="{{ url_for('cart_clear', username=creator.username) }}"><button class="btn ghost full" type="submit">Clear cart</button></form>
         <a class="btn full" href="{{ url_for('checkout', username=creator.username) }}">Continue to checkout</a>
