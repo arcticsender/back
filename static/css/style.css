@@ -519,3 +519,194 @@ body:before{
   .mobile-balance-pill{height:30px!important;min-height:30px!important;max-width:72px!important;padding:0 7px!important;font-size:.64rem!important;border-radius:10px!important}
   .cart-icon{width:15px!important;height:15px!important}
 }
+
+
+/* Mobile topbar + drawer final cleanup */
+@media (max-width:720px){
+  body{padding-top:62px!important}
+  .nav{
+    position:fixed!important;
+    top:8px!important;
+    left:8px!important;
+    right:8px!important;
+    width:auto!important;
+    height:46px!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:5px 6px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:6px!important;
+    border-radius:14px!important;
+    background:rgba(6,18,32,.92)!important;
+    border:1px solid rgba(174,231,255,.14)!important;
+    box-shadow:0 10px 30px rgba(0,0,0,.24)!important;
+    backdrop-filter:blur(14px)!important;
+    z-index:70!important;
+    transform:none!important;
+  }
+  .nav .brand{
+    display:flex!important;
+    align-items:center!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    gap:7px!important;
+    overflow:hidden!important;
+    color:#f4fdff!important;
+  }
+  .nav .brand-logo{
+    display:block!important;
+    width:32px!important;
+    height:32px!important;
+    min-width:32px!important;
+    border-radius:10px!important;
+    object-fit:cover!important;
+    opacity:1!important;
+    visibility:visible!important;
+    box-shadow:0 0 18px rgba(54,183,255,.24)!important;
+  }
+  .nav .brand-word{
+    display:inline-flex!important;
+    align-items:baseline!important;
+    max-width:128px!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    white-space:nowrap!important;
+    text-overflow:ellipsis!important;
+    font-size:.84rem!important;
+    font-weight:950!important;
+    letter-spacing:-.045em!important;
+  }
+  .nav .brand-word span{display:inline!important}
+  .desktop-nav-links{display:none!important}
+  .mobile-top-actions{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    flex:0 0 auto!important;
+    gap:5px!important;
+    margin-left:auto!important;
+    min-width:0!important;
+  }
+  .mobile-cart-btn,
+  .mobile-balance-pill,
+  .mobile-auth-btn,
+  .mobile-menu-btn{
+    height:32px!important;
+    min-height:32px!important;
+    border-radius:10px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    line-height:1!important;
+    font-size:.69rem!important;
+    font-weight:950!important;
+    white-space:nowrap!important;
+    box-shadow:none!important;
+    transform:none!important;
+  }
+  .mobile-cart-btn,
+  .mobile-balance-pill,
+  .mobile-menu-btn{
+    background:rgba(168,241,255,.075)!important;
+    border:1px solid rgba(174,231,255,.14)!important;
+    color:#eaffff!important;
+  }
+  .mobile-cart-btn{
+    position:relative!important;
+    width:32px!important;
+    min-width:32px!important;
+    padding:0!important;
+  }
+  .cart-icon{width:16px!important;height:16px!important;display:block!important;fill:currentColor!important}
+  .mobile-cart-btn b{
+    position:absolute!important;
+    top:-5px!important;
+    right:-5px!important;
+    min-width:15px!important;
+    height:15px!important;
+    padding:0 4px!important;
+    border-radius:999px!important;
+    background:linear-gradient(135deg,#a8f1ff,#166bff)!important;
+    color:#03101d!important;
+    border:1px solid rgba(2,8,16,.55)!important;
+    font-size:.55rem!important;
+    line-height:14px!important;
+  }
+  .mobile-balance-pill{
+    max-width:86px!important;
+    padding:0 9px!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  .mobile-auth-btn{
+    padding:0 10px!important;
+    background:linear-gradient(135deg,#a8f1ff,#36b7ff 52%,#166bff)!important;
+    color:#03101d!important;
+    border:0!important;
+    box-shadow:0 8px 20px rgba(54,183,255,.17)!important;
+  }
+  .mobile-menu-btn{
+    position:static!important;
+    left:auto!important;
+    top:auto!important;
+    width:32px!important;
+    min-width:32px!important;
+    padding:0!important;
+    place-items:center!important;
+    z-index:auto!important;
+  }
+  .mobile-menu-btn span{
+    width:14px!important;
+    height:2px!important;
+    margin:1.4px 0!important;
+    display:block!important;
+    border-radius:99px!important;
+    background:#eaffff!important;
+  }
+  body.mobile-menu-open .mobile-menu-btn{opacity:1!important;pointer-events:auto!important;filter:brightness(.9)!important}
+
+  .mobile-drawer{
+    display:grid!important;
+    grid-template-rows:auto auto auto auto!important;
+    align-content:start!important;
+    gap:12px!important;
+    width:min(84vw,330px)!important;
+    height:100dvh!important;
+    padding:14px!important;
+    padding-top:14px!important;
+    overflow-y:auto!important;
+  }
+  .drawer-head{position:static!important;top:auto!important;left:auto!important;right:auto!important;margin-bottom:4px!important}
+  .drawer-brand img{width:34px!important;height:34px!important;border-radius:11px!important}
+  .drawer-close{width:36px!important;height:36px!important;min-width:36px!important;border-radius:12px!important}
+  .drawer-balance{padding:13px!important;border-radius:17px!important}
+  .drawer-balance strong{font-size:1.35rem!important}
+  .drawer-links{display:grid!important;gap:8px!important;align-self:start!important;align-content:start!important}
+  .drawer-links a{padding:12px 13px!important;border-radius:14px!important;font-size:.86rem!important}
+  .drawer-logout{
+    width:100%!important;
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    padding:0 14px!important;
+    border-radius:14px!important;
+    margin-top:6px!important;
+    align-self:start!important;
+    justify-self:stretch!important;
+    flex:none!important;
+  }
+  main{padding-top:0!important}
+}
+@media (max-width:390px){
+  .nav{height:44px!important;padding:5px!important;gap:4px!important;border-radius:13px!important}
+  .nav .brand-logo{width:29px!important;height:29px!important;min-width:29px!important}
+  .nav .brand-word{max-width:94px!important;font-size:.76rem!important}
+  .mobile-top-actions{gap:4px!important}
+  .mobile-cart-btn,.mobile-menu-btn{width:30px!important;min-width:30px!important;height:30px!important;min-height:30px!important;border-radius:9px!important}
+  .mobile-auth-btn{height:30px!important;min-height:30px!important;padding:0 8px!important;font-size:.64rem!important;border-radius:9px!important}
+  .mobile-balance-pill{height:30px!important;min-height:30px!important;max-width:72px!important;padding:0 7px!important;font-size:.63rem!important;border-radius:9px!important}
+  .cart-icon{width:15px!important;height:15px!important}
+}

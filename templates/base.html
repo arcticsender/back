@@ -67,7 +67,7 @@
         {% if current_user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
         <a href="{{ url_for('settings') }}">Settings</a>
       </nav>
-      <a class="btn full" href="{{ url_for('logout') }}">Logout</a>
+      <a class="btn full drawer-logout" href="{{ url_for('logout') }}">Logout</a>
     {% else %}
       <nav class="drawer-links">
         {% if cart_count and cart_creator_username %}<a href="{{ url_for('cart', username=cart_creator_username) }}">Cart · {{ cart_count }}</a>{% endif %}
