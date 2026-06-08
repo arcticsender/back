@@ -1,4 +1,29 @@
-<article class="item-card gift-card-pro">
+<article class="item-card gift-card-pro{% if is_owner_view %} owner-managed-card{% endif %}">
+  {% if is_owner_view %}
+    <div class="owner-card-tools in-card" data-owner-tools>
+      <details class="owner-edit-gift">
+        <summary class="tool-btn" role="button" aria-label="Edit {{ item.title }}">Edit gift</summary>
+        <form class="owner-edit-pop" method="post" action="{{ url_for('edit_item', item_id=item.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist">
+          <label>Title<input name="title" value="{{ item.title }}" required maxlength="120"></label>
+          <label>Type<select name="gift_type"><option value="single" {% if item.gift_type == 'single' %}selected{% endif %}>Single purchase</option><option value="goal" {% if item.gift_type == 'goal' %}selected{% endif %}>Crowdfund goal</option></select></label>
+          <label>Amount<input name="price" type="number" min="1" step="0.01" value="{{ item.price }}" required></label>
+          <label>Stock<input name="stock_count" type="number" min="1" max="99" step="1" value="{{ item.stock_limit }}"></label>
+          <label>Description<textarea name="description" rows="3">{{ item.description }}</textarea></label>
+          <label>Reference link<input name="product_url" value="{{ item.product_url }}"></label>
+          <label>Image URL<input name="image_url" value="{% if item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ item.image_url }}{% endif %}"></label>
+          <label class="file-picker"><span>Replace image</span><input name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose image</b><small class="file-picker-name">No image selected</small></label>
+          {% if item.image_url %}<label class="check"><input type="checkbox" name="remove_image"> Remove image</label>{% endif %}
+          <label>Priority<select name="priority"><option value="normal" {% if item.priority == 'normal' %}selected{% endif %}>Normal</option><option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option><option value="dream" {% if item.priority == 'dream' %}selected{% endif %}>Dream item</option></select></label>
+          <label class="check"><input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}> Visible on page</label>
+          <button class="btn full">Save changes</button>
+          <button class="btn ghost full" form="delete-gift-{{ item.id }}">Remove gift</button>
+        </form>
+        <form id="delete-gift-{{ item.id }}" method="post" action="{{ url_for('delete_item', item_id=item.id) }}"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"></form>
+      </details>
+    </div>
+  {% endif %}
+
   <a href="{{ url_for('support_item', item_id=item.id) }}" class="item-image gift-modal-open" data-gift-modal="gift-modal-{{ item.id }}" aria-label="Quick add {{ item.title }}">
     {% if item.image_url %}
       <img src="{{ item.image_url }}" alt="{{ item.title }} gift image" loading="lazy">
@@ -8,13 +33,13 @@
     <span class="gift-chip">{{ item.type_label }}</span>
   </a>
   <div class="item-body">
-    <div class="item-top"><span>{{ money(item.price_cents) }}</span>{% if item.gift_type == 'single' %}<span>{{ item.remaining_stock }} left</span>{% else %}<span>{{ item.progress }}%</span>{% endif %}</div>
+    <div class="item-top"><span>{{ money(item.price_cents) }}</span>{% if item.gift_type == 'single' %}{% if is_owner_view %}<span>{{ item.remaining_stock }} left</span>{% endif %}{% else %}<span>{{ item.progress }}%</span>{% endif %}</div>
     <h3><a href="{{ url_for('support_item', item_id=item.id) }}" class="gift-title-link gift-modal-open" data-gift-modal="gift-modal-{{ item.id }}">{{ item.title }}</a></h3>
     <p>{{ item.description[:110] }}{% if item.description|length > 110 %}...{% endif %}</p>
     {% if item.gift_type == 'goal' %}
       <div class="bar"><span style="width:{{ item.progress }}%"></span></div>
       <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.remaining_cents) }} left</span></div>
-    {% else %}
+    {% elif is_owner_view %}
       <div class="item-meta single-stock"><span>{{ item.sold_count }} bought</span><span>{{ item.remaining_stock }} of {{ item.stock_limit }} available</span></div>
     {% endif %}
     <div class="card-actions">
@@ -48,7 +73,7 @@
         <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.remaining_cents) }} left</span></div>
         <label class="modal-amount-label">Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
       {% else %}
-        <div class="locked-amount compact-locked"><span>Single gift</span><strong>{{ money(item.price_cents) }}</strong><small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small></div>
+        <div class="locked-amount compact-locked"><span>Single gift</span><strong>{{ money(item.price_cents) }}</strong>{% if is_owner_view %}<small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small>{% endif %}</div>
       {% endif %}
       <div class="gift-modal-actions">
         <button class="btn full">Add to cart</button>

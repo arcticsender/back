@@ -5,6 +5,7 @@
 {% block og_image %}{% if item.image_url %}{{ item.image_url }}{% elif item.creator.banner_url %}{{ item.creator.banner_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
 {% block og_image_alt %}{{ item.title }} cash gift for {{ item.creator.display_name }}{% endblock %}
 {% block content %}
+{% set is_owner_view = current_user and current_user.id == item.creator.id %}
 <section class="section gift-detail-section">
   <div class="gift-detail-card frost-card">
     <div class="gift-detail-media">
@@ -28,7 +29,7 @@
         <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.remaining_cents) }} left</span></div>
         <label>Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
       {% else %}
-        <div class="locked-amount"><span>Single gift amount</span><strong>{{ money(item.price_cents) }}</strong><small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small></div>
+        <div class="locked-amount"><span>Single gift amount</span><strong>{{ money(item.price_cents) }}</strong>{% if is_owner_view %}<small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small>{% endif %}</div>
       {% endif %}
 
       {% if item.product_url %}<a class="reference-link" href="{{ item.product_url }}" target="_blank" rel="noopener">View reference link</a>{% endif %}

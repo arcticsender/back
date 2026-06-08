@@ -2126,6 +2126,7 @@ def creator_recent_sends(user, limit=30):
             Contribution.creator_id == user.id,
             Contribution.status == 'paid',
             Contribution.item_id.isnot(None),
+            Contribution.item_id > 0,
             WishlistItem.id.isnot(None),
         )
         .order_by(Contribution.paid_at.desc().nullslast(), Contribution.created_at.desc())
@@ -2826,6 +2827,7 @@ def migrate_sqlite_columns():
                 conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN platform_fee_cents INTEGER DEFAULT 0 NOT NULL")
             if 'order_id' not in columns:
                 conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN order_id INTEGER")
+            conn.exec_driver_sql("UPDATE contribution SET item_id = NULL WHERE item_id = 0")
         conn.commit()
 
 
