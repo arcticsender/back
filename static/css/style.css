@@ -1649,3 +1649,64 @@ body.gift-modal-is-open{overflow:hidden}.gift-title-link{color:inherit}.gift-mod
   padding:18%!important;
   background:linear-gradient(135deg,rgba(168,241,255,.15),rgba(54,183,255,.08))!important;
 }
+
+/* Final stable creator profile buttons: no cursor/color glitches, scale only */
+.creator-actions-v3 .btn.ghost,
+.creator-actions-v3 .share-btn{
+  background:rgba(205,247,255,.14)!important;
+  color:#effcff!important;
+  border:1px solid rgba(205,247,255,.30)!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.12)!important;
+  filter:none!important;
+  opacity:1!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  transform:translateZ(0) scale(1)!important;
+  transition:transform .18s ease, box-shadow .18s ease!important;
+}
+.creator-actions-v3 .btn.ghost:hover,
+.creator-actions-v3 .btn.ghost:focus-visible,
+.creator-actions-v3 .share-btn:hover,
+.creator-actions-v3 .share-btn:focus-visible,
+.creator-actions-v3 .btn.ghost.is-active,
+.creator-actions-v3 .btn.ghost.is-active:hover,
+.creator-actions-v3 .btn.ghost.is-active:focus-visible{
+  background:rgba(205,247,255,.14)!important;
+  color:#effcff!important;
+  border-color:rgba(205,247,255,.30)!important;
+  filter:none!important;
+  opacity:1!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  transform:translateZ(0) scale(1.035)!important;
+}
+.creator-actions-v3 .custom-gift-fab,
+.creator-actions-v3 .custom-gift-fab.is-active{
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  transform:translateZ(0) scale(1)!important;
+  transition:transform .18s ease, box-shadow .18s ease!important;
+}
+.creator-actions-v3 .custom-gift-fab:hover,
+.creator-actions-v3 .custom-gift-fab:focus-visible,
+.creator-actions-v3 .custom-gift-fab.is-active:hover,
+.creator-actions-v3 .custom-gift-fab.is-active:focus-visible{
+  transform:translateZ(0) scale(1.035)!important;
+  filter:none!important;
+}
+.gift-sort-form{
+  display:flex;
+  align-items:end;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:16px 0 18px;
+  padding:12px;
+  border:1px solid rgba(205,247,255,.16);
+  border-radius:18px;
+  background:rgba(5,18,31,.38);
+}
+.gift-sort-form label{font-size:.76rem;font-weight:950;text-transform:uppercase;letter-spacing:.06em;color:rgba(229,247,255,.72);margin-right:2px}
+.gift-sort-form select{min-height:40px;border-radius:13px;border:1px solid rgba(205,247,255,.20);background:rgba(8,24,40,.82);color:#effcff;padding:0 12px;font-weight:850;outline:none}
+.gift-sort-form .btn{min-height:40px;padding:0 14px}
+.owner-card-tools{justify-content:flex-end!important}
+@media(max-width:700px){.gift-sort-form{display:grid;grid-template-columns:1fr auto}.gift-sort-form label{grid-column:1/-1}.gift-sort-form select{width:100%}}

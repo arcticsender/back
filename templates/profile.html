@@ -14,9 +14,19 @@
     {% if is_owner_view %}
     <section class="creator-owner-panel frost-card" id="creator-tools">
       <div class="owner-tools-head">
-        <div><span class="pill">Creator tools</span><h2>Manage gifts on your page</h2><p>Add gifts, update cards, and arrange the order visitors see.</p></div>
+        <div><span class="pill">Creator tools</span><h2>Manage gifts on your page</h2><p>Add gifts, update cards, and choose how your wishlist is sorted.</p></div>
         <a class="btn ghost" href="{{ url_for('dashboard') }}">Dashboard</a>
       </div>
+
+      <form class="gift-sort-form" method="post" action="{{ url_for('update_gift_sort', username=creator.username) }}">
+        <label>Wishlist order</label>
+        <select name="gift_sort" onchange="this.form.submit()">
+          <option value="recent" {% if creator.gift_sort == 'recent' %}selected{% endif %}>Most recent</option>
+          <option value="highest" {% if creator.gift_sort == 'highest' %}selected{% endif %}>Highest price</option>
+          <option value="lowest" {% if creator.gift_sort == 'lowest' %}selected{% endif %}>Lowest price</option>
+        </select>
+        <button class="btn ghost" type="submit">Apply</button>
+      </form>
       <details class="owner-add-gift">
         <summary class="btn">Add new gift</summary>
         <form class="owner-gift-form" method="post" action="{{ url_for('new_item') }}" enctype="multipart/form-data">
@@ -46,8 +56,6 @@
             <div class="owner-card-wrap">
               {% if is_owner_view %}
               <div class="owner-card-tools">
-                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="up"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button type="submit" class="tool-btn" title="Move up" aria-label="Move gift up">↑</button></form>
-                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="down"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button type="submit" class="tool-btn" title="Move down" aria-label="Move gift down">↓</button></form>
                 <details class="owner-edit-gift"><summary class="tool-btn" role="button">Edit</summary>
                   <form class="owner-edit-pop" method="post" action="{{ url_for('edit_item', item_id=item.id) }}" enctype="multipart/form-data">
                     <input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist">
@@ -55,7 +63,6 @@
                     <label>Type<select name="gift_type"><option value="single" {% if item.gift_type == 'single' %}selected{% endif %}>Single purchase</option><option value="goal" {% if item.gift_type == 'goal' %}selected{% endif %}>Crowdfund goal</option></select></label>
                     <label>Amount<input name="price" type="number" min="1" step="0.01" value="{{ item.price }}" required></label>
                     <label>Stock<input name="stock_count" type="number" min="1" max="99" step="1" value="{{ item.stock_limit }}"></label>
-                    <label>Order<input name="display_order" type="number" value="{{ item.display_order }}"></label>
                     <label>Description<textarea name="description" rows="3">{{ item.description }}</textarea></label>
                     <label>Reference link<input name="product_url" value="{{ item.product_url }}"></label>
                     <label>Image URL<input name="image_url" value="{% if item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ item.image_url }}{% endif %}"></label>

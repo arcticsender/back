@@ -212,6 +212,7 @@ class User(db.Model):
     locked_until = db.Column(db.DateTime, nullable=True)
     last_failed_login_at = db.Column(db.DateTime, nullable=True)
     admin_note = db.Column(db.Text, default='')
+    gift_sort = db.Column(db.String(20), nullable=False, default='recent')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     wishlist_items = db.relationship('WishlistItem', backref='creator', lazy=True, cascade='all, delete-orphan')
@@ -673,6 +674,15 @@ def next_item_order(user_id):
 
 def item_order_query(query):
     return query.order_by(WishlistItem.display_order.asc(), WishlistItem.created_at.desc())
+
+
+def gift_sort_query(query, sort_value):
+    sort_value = (sort_value or 'recent').strip().lower()
+    if sort_value == 'highest':
+        return query.order_by(WishlistItem.price_cents.desc(), WishlistItem.created_at.desc())
+    if sort_value == 'lowest':
+        return query.order_by(WishlistItem.price_cents.asc(), WishlistItem.created_at.desc())
+    return query.order_by(WishlistItem.created_at.desc())
 
 
 def redirect_after_item_save(default_endpoint='dashboard', **values):
@@ -2109,7 +2119,7 @@ def profile(username):
     viewer = current_user()
     owns_page = bool(viewer and (viewer.id == user.id or viewer.is_admin))
     item_query = WishlistItem.query.filter_by(creator_id=user.id) if owns_page else WishlistItem.query.filter_by(creator_id=user.id, is_active=True)
-    items = item_order_query(item_query).all()
+    items = gift_sort_query(item_query, user.gift_sort).all()
     recent_sends = creator_recent_sends(user, 4)
     named_count = len(creator_leaderboard_rows(user, 1000))
     return render_template('profile.html', creator=user, items=items, recent_sends=recent_sends, named_count=named_count)
@@ -2121,6 +2131,23 @@ def public_leaderboard(username):
     leaderboard = creator_leaderboard_rows(user, 50)
     recent_sends = creator_recent_sends(user, 40)
     return render_template('leaderboard.html', creator=user, leaderboard=leaderboard, recent_sends=recent_sends)
+
+
+@app.route('/@<username>/gift-sort', methods=['POST'])
+@login_required
+def update_gift_sort(username):
+    creator = User.query.filter_by(username=username).first_or_404()
+    user = current_user()
+    if creator.id != user.id and not user.is_admin:
+        abort(403)
+    sort_value = (request.form.get('gift_sort') or 'recent').strip().lower()
+    if sort_value not in {'highest', 'lowest', 'recent'}:
+        sort_value = 'recent'
+    creator.gift_sort = sort_value
+    db.session.commit()
+    mongo_backup_model(creator)
+    flash('Gift order updated.', 'success')
+    return redirect(url_for('profile', username=creator.username) + '#wishlist')
 
 
 @app.route('/@<username>/donate', methods=['GET', 'POST'])
@@ -2747,6 +2774,7 @@ def migrate_sqlite_columns():
                 'locked_until': "ALTER TABLE user ADD COLUMN locked_until DATETIME",
                 'last_failed_login_at': "ALTER TABLE user ADD COLUMN last_failed_login_at DATETIME",
                 'admin_note': "ALTER TABLE user ADD COLUMN admin_note TEXT DEFAULT ''",
+                'gift_sort': "ALTER TABLE user ADD COLUMN gift_sort VARCHAR(20) DEFAULT 'recent' NOT NULL",
             }
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:
