@@ -20,12 +20,12 @@
   <div class="bg-orb orb-b"></div>
   <header class="nav">
     <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="brand" aria-label="{{ site_name }} home"><img class="brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span class="brand-word"><span>Arctic</span><span>Sender</span></span></a>
-    <nav class="nav-links">
+    <nav class="nav-links desktop-nav-links">
       {% if current_user %}
         <span class="nav-balance">Received <b>{{ money(current_user.lifetime_earned_cents) }}</b></span>
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
         <a href="{{ url_for('profile', username=current_user.username) }}">My Page</a>
-        <a href="{{ url_for('public_leaderboard', username=current_user.username) }}">Sends</a>
+        <a href="{{ url_for('public_leaderboard', username=current_user.username) }}">Gifters</a>
         {% if cart_count %}<a class="cart-pill" href="{{ url_for('cart', username=current_user.username) }}">Cart · {{ cart_count }}</a>{% endif %}
         {% if current_user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
         <a class="btn btn-small ghost" href="{{ url_for('logout') }}">Logout</a>
@@ -35,7 +35,34 @@
         <a class="btn btn-small" href="{{ url_for('register') }}">Start free</a>
       {% endif %}
     </nav>
+    <button class="mobile-menu-btn" type="button" aria-label="Open menu" aria-controls="mobile-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
   </header>
+
+  <div class="mobile-drawer-backdrop" data-close-mobile-menu></div>
+  <aside id="mobile-drawer" class="mobile-drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="drawer-brand"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span>{{ site_name }}</span></a>
+      <button class="drawer-close" type="button" aria-label="Close menu" data-close-mobile-menu>×</button>
+    </div>
+    {% if current_user %}
+      <div class="drawer-balance"><small>Received</small><strong>{{ money(current_user.lifetime_earned_cents) }}</strong></div>
+      <nav class="drawer-links">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('profile', username=current_user.username) }}">My Page</a>
+        <a href="{{ url_for('public_leaderboard', username=current_user.username) }}">Gifters</a>
+        {% if cart_count %}<a href="{{ url_for('cart', username=current_user.username) }}">Cart · {{ cart_count }}</a>{% endif %}
+        {% if current_user.is_admin %}<a href="{{ url_for('admin') }}">Admin</a>{% endif %}
+        <a href="{{ url_for('settings') }}">Settings</a>
+      </nav>
+      <a class="btn full" href="{{ url_for('logout') }}">Logout</a>
+    {% else %}
+      <nav class="drawer-links">
+        {% if cart_count and cart_creator_username %}<a href="{{ url_for('cart', username=cart_creator_username) }}">Cart · {{ cart_count }}</a>{% endif %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}">Start free</a>
+      </nav>
+    {% endif %}
+  </aside>
 
   <main>
     {% with messages = get_flashed_messages(with_categories=true) %}

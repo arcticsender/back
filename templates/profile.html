@@ -17,29 +17,16 @@
       <div class="creator-actions">
         <a class="btn" href="{{ url_for('donate', username=creator.username) }}">Custom gift</a>
         <a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Cart{% if cart_count %} · {{ cart_count }}{% endif %}</a>
+        <a class="btn ghost" href="{{ url_for('public_leaderboard', username=creator.username) }}">Gifters</a>
         <button type="button" class="btn ghost share-btn" data-share-title="{{ creator.display_name }} on {{ site_name }}" data-share-url="{{ request.url }}">Share page</button>
       </div>
     </div>
 
-    <div class="creator-layout">
+    <div class="creator-layout creator-layout-clean">
       <main class="creator-main-list">
         <div class="section-head clean-head"><div><span class="pill">Wishlist</span><h2>Cash gifts</h2></div><span>{{ items|length }} active</span></div>
         <div class="grid cards-grid creator-cards">{% for item in items %}{% include 'partials/item_card.html' %}{% else %}<div class="empty">This creator has not added cash gifts yet. You can still add a custom donation to your cart.</div>{% endfor %}</div>
       </main>
-      <aside class="creator-sidebar frost-card">
-        <div class="pill">Latest sends</div>
-        <h2>Support feed</h2>
-        <p class="muted">Supporter emails and payment details stay private.</p>
-        <div class="send-feed">
-        {% for send in recent_sends %}
-          <div class="recent-send-row">
-            <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom support{% endif %}</small></div>
-            <strong>{{ money(send.amount_cents) }}</strong>
-          </div>
-        {% else %}<p class="muted">No sends yet.</p>{% endfor %}
-        </div>
-        <a class="btn ghost full" href="{{ url_for('public_leaderboard', username=creator.username) }}">View sends</a>
-      </aside>
     </div>
   </div>
 </section>

@@ -116,3 +116,23 @@
   typeSelect?.addEventListener('change', syncStockField);
   syncStockField();
 })();
+
+(() => {
+  const button = document.querySelector('.mobile-menu-btn');
+  const drawer = document.getElementById('mobile-drawer');
+  if (!button || !drawer) return;
+  const open = () => {
+    document.body.classList.add('mobile-menu-open');
+    button.setAttribute('aria-expanded', 'true');
+    drawer.setAttribute('aria-hidden', 'false');
+  };
+  const close = () => {
+    document.body.classList.remove('mobile-menu-open');
+    button.setAttribute('aria-expanded', 'false');
+    drawer.setAttribute('aria-hidden', 'true');
+  };
+  button.addEventListener('click', () => document.body.classList.contains('mobile-menu-open') ? close() : open());
+  document.querySelectorAll('[data-close-mobile-menu]').forEach((el) => el.addEventListener('click', close));
+  drawer.querySelectorAll('a').forEach((link) => link.addEventListener('click', close));
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+})();
