@@ -1883,3 +1883,68 @@ body.gift-modal-is-open{overflow:hidden}.gift-title-link{color:inherit}.gift-mod
 .owner-edit-pop{box-shadow:0 30px 90px rgba(0,0,0,.58)!important;}
 #snow-canvas{opacity:.86!important}.snowfield{opacity:.76!important}
 @media(max-width:700px){.smart-amounts{gap:6px}.smart-amount-btn{min-height:44px!important;padding:7px 6px!important;border-radius:12px!important}.smart-amount-btn span{font-size:.58rem}.smart-amount-btn b{font-size:.78rem}.owner-card-tools.in-card{top:7px!important;right:7px!important;padding:4px!important;border-radius:13px!important}.owner-card-tools.in-card .tool-btn{min-height:34px!important;height:34px!important;line-height:34px!important;padding:0 12px!important;font-size:.72rem!important}#snow-canvas{opacity:.66!important}.snowfield{opacity:.54!important}}
+
+/* Final creator-card cleanup: compact cards, stable edit modal, and centered media */
+.gift-card-pro{position:relative!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;}
+.gift-card-pro .item-image{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:10px!important;background:linear-gradient(145deg,rgba(168,241,255,.09),rgba(54,183,255,.045))!important;}
+.gift-card-pro .item-image-frame{width:100%!important;height:100%!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;border-radius:calc(var(--radius) - 10px)!important;background:rgba(2,9,18,.48)!important;border:1px solid rgba(168,241,255,.10)!important;}
+.gift-card-pro .item-image img{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center center!important;border-radius:inherit!important;}
+.gift-card-pro .item-image-placeholder{width:100%!important;height:100%!important;display:grid!important;place-items:center!important;}
+.gift-card-pro .item-body{align-content:start!important;}
+.gift-card-pro .card-actions.single-action{display:block!important;margin-top:auto!important;}
+.gift-card-pro .card-actions.single-action .btn{width:100%!important;min-height:44px!important;}
+.owner-card-tools.in-card{position:absolute!important;top:12px!important;right:12px!important;z-index:6!important;padding:0!important;background:transparent!important;border:0!important;backdrop-filter:none!important;}
+.owner-card-tools.in-card .tool-btn{height:38px!important;min-height:38px!important;padding:0 14px!important;border-radius:999px!important;background:rgba(3,12,23,.78)!important;border:1px solid rgba(168,241,255,.22)!important;color:#eefbff!important;box-shadow:0 10px 28px rgba(0,0,0,.25)!important;font-size:.78rem!important;line-height:1!important;}
+.owner-card-tools.in-card .tool-btn:hover{transform:scale(1.035)!important;filter:none!important;background:rgba(3,12,23,.78)!important;}
+.owner-edit-modal .gift-modal-card.owner-edit-modal-card{width:min(720px,calc(100vw - 28px))!important;max-height:min(820px,calc(100vh - 34px))!important;display:block!important;overflow:hidden!important;padding:0!important;border-radius:28px!important;background:linear-gradient(180deg,rgba(8,25,45,.98),rgba(5,17,31,.96))!important;}
+.owner-edit-modal-head{padding:22px 22px 12px!important;border-bottom:1px solid rgba(168,241,255,.12)!important;}
+.owner-edit-modal-head h2{margin:10px 0 4px!important;font-size:1.7rem!important;letter-spacing:-.045em!important;}
+.owner-edit-modal-head p{margin:0!important;}
+.owner-edit-modal-form.owner-edit-pop{position:static!important;width:100%!important;max-height:calc(100vh - 185px)!important;overflow-y:auto!important;padding:18px 22px 22px!important;display:grid!important;gap:14px!important;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;}
+.owner-edit-modal-form .form-row.two{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important;}
+.owner-edit-modal-form label{font-size:.88rem!important;}
+.owner-edit-modal-form input,.owner-edit-modal-form textarea,.owner-edit-modal-form select{min-height:44px!important;font-size:.95rem!important;}
+.owner-edit-modal-form textarea{min-height:112px!important;}
+.owner-visible-toggle{align-self:end!important;min-height:44px!important;padding:12px!important;border:1px solid rgba(168,241,255,.14)!important;border-radius:16px!important;background:rgba(255,255,255,.035)!important;}
+.owner-edit-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;padding-top:4px!important;}
+.owner-edit-actions .danger-lite{grid-column:1/-1!important;color:#ffd9e3!important;border-color:rgba(255,107,145,.35)!important;background:rgba(255,107,145,.08)!important;}
+.compact-goal-modal.gift-modal-card{width:min(780px,calc(100vw - 28px))!important;grid-template-columns:minmax(240px,.82fr) minmax(0,1fr)!important;max-height:calc(100vh - 32px)!important;overflow:hidden!important;}
+.compact-goal-modal .gift-modal-media{min-height:0!important;height:auto!important;max-height:520px!important;}
+.compact-goal-modal .gift-modal-content{gap:10px!important;padding:22px!important;overflow-y:auto!important;max-height:calc(100vh - 32px)!important;}
+.compact-goal-modal .gift-modal-content h2{font-size:1.65rem!important;margin:0!important;}
+.compact-goal-modal .gift-modal-content p{font-size:.92rem!important;line-height:1.45!important;max-height:4.2em!important;overflow:hidden!important;}
+.compact-smart-amounts{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;margin:4px 0!important;}
+.compact-smart-amounts .smart-amount-btn{min-height:42px!important;padding:7px 6px!important;border-radius:12px!important;}
+.compact-smart-amounts .smart-amount-btn span{font-size:.56rem!important;letter-spacing:.06em!important;}
+.compact-smart-amounts .smart-amount-btn b{font-size:.78rem!important;}
+.compact-amount-field{gap:6px!important;font-size:.82rem!important;}
+.compact-amount-field input{min-height:42px!important;padding:10px 12px!important;}
+.gift-modal-actions{gap:9px!important;}
+.icon-share-link{width:42px!important;height:42px!important;min-height:42px!important;align-self:center!important;border-radius:14px!important;margin-top:0!important;}
+body.gift-modal-is-open{overflow:hidden!important;}
+
+@media(max-width:760px){
+  .gift-card-pro .item-image{padding:7px!important;height:122px!important;}
+  .gift-card-pro .item-image-frame{border-radius:14px!important;}
+  .gift-card-pro .item-body h3{font-size:.95rem!important;line-height:1.15!important;}
+  .gift-card-pro .item-body p{font-size:.75rem!important;line-height:1.35!important;}
+  .gift-card-pro .item-top,.gift-card-pro .item-meta{font-size:.68rem!important;gap:6px!important;}
+  .gift-card-pro .card-actions.single-action .btn{min-height:38px!important;font-size:.72rem!important;padding:8px 9px!important;border-radius:13px!important;}
+  .owner-card-tools.in-card{top:8px!important;right:8px!important;}
+  .owner-card-tools.in-card .tool-btn{height:32px!important;min-height:32px!important;padding:0 10px!important;font-size:.68rem!important;border-radius:999px!important;}
+  .owner-edit-modal .gift-modal-card.owner-edit-modal-card{width:calc(100vw - 18px)!important;max-height:calc(100vh - 18px)!important;border-radius:22px!important;}
+  .owner-edit-modal-head{padding:18px 16px 10px!important;}
+  .owner-edit-modal-head h2{font-size:1.4rem!important;}
+  .owner-edit-modal-form.owner-edit-pop{max-height:calc(100vh - 150px)!important;padding:14px 16px 18px!important;gap:12px!important;}
+  .owner-edit-modal-form .form-row.two,.owner-edit-actions{grid-template-columns:1fr!important;}
+  .owner-edit-modal-form input,.owner-edit-modal-form textarea,.owner-edit-modal-form select{font-size:16px!important;min-height:46px!important;}
+  .compact-goal-modal.gift-modal-card{width:calc(100vw - 18px)!important;max-height:calc(100vh - 18px)!important;display:block!important;overflow-y:auto!important;border-radius:22px!important;}
+  .compact-goal-modal .gift-modal-media{height:160px!important;min-height:160px!important;max-height:160px!important;}
+  .compact-goal-modal .gift-modal-content{max-height:none!important;padding:16px!important;gap:9px!important;overflow:visible!important;}
+  .compact-goal-modal .gift-modal-content h2{font-size:1.25rem!important;}
+  .compact-goal-modal .gift-modal-content p{font-size:.82rem!important;max-height:3.5em!important;}
+  .compact-smart-amounts{gap:6px!important;}
+  .compact-smart-amounts .smart-amount-btn{min-height:38px!important;padding:6px 4px!important;}
+  .compact-smart-amounts .smart-amount-btn span{font-size:.5rem!important;}
+  .compact-smart-amounts .smart-amount-btn b{font-size:.7rem!important;}
+}
