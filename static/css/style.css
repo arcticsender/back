@@ -1385,3 +1385,61 @@ body.gift-modal-is-open{overflow:hidden}.gift-title-link{color:inherit}.gift-mod
 .payout-status-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:2px 2px 10px!important;border-bottom:1px solid rgba(168,241,255,.10)!important}.payout-status-head b{display:inline-flex!important;align-items:center!important;gap:6px!important;color:#effcff!important;font-size:.98rem!important}.payout-status-head span{display:block!important;color:var(--muted)!important;margin-top:4px!important;font-size:.92rem!important}.payout-connect-btn{min-height:42px!important;padding:0 18px!important;border-radius:15px!important;white-space:nowrap!important}
 .payout-mini-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}.mini-stat{border:1px solid rgba(168,241,255,.15)!important;background:rgba(255,255,255,.035)!important;border-radius:16px!important;padding:12px!important;min-width:0!important}.mini-stat span{display:block!important;color:var(--muted)!important;font-size:.72rem!important;font-weight:950!important;text-transform:uppercase!important;letter-spacing:.055em!important}.mini-stat b{display:block!important;color:#effcff!important;font-size:1.05rem!important;line-height:1.2!important;margin-top:3px!important;word-break:break-word!important}.compact-alert{margin:0!important;padding:12px 13px!important;border-radius:15px!important;font-size:.9rem!important}.compact-alert ul{margin:.45rem 0 0 1rem!important;padding:0!important}.manual-stripe-form{margin-top:12px!important;padding-top:12px!important;border-top:1px solid rgba(168,241,255,.1)!important}
 @media(max-width:700px){.settings-page-clean{gap:14px!important}.settings-page-clean .frost-card{padding:16px!important;border-radius:20px!important}.settings-page-clean .settings-stats{grid-template-columns:1fr 1fr!important;gap:8px!important}.settings-page-clean .settings-stats .stat-card{padding:10px!important;border-radius:14px!important}.settings-page-clean .settings-stats .stat-card b{font-size:1rem!important}.payout-status-head{display:grid!important;gap:10px!important}.payout-connect-btn{width:100%!important}.payout-mini-grid{grid-template-columns:1fr!important;gap:8px!important}.mini-stat{padding:10px!important;border-radius:14px!important}.payout-settings-card h2{font-size:1.45rem!important}.settings-actions-row .btn{flex:1 1 135px!important}}
+
+
+/* Final fix: creator profile buttons stay stable; hover only scales */
+.creator-actions-v3 .btn.ghost,
+.creator-actions-v3 .share-btn,
+.creator-actions-v3 .btn.ghost.is-active,
+.creator-actions-v3 .custom-gift-fab,
+.creator-actions-v3 .custom-gift-fab.is-active{
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  opacity:1!important;
+  filter:none!important;
+  transform:translateZ(0) scale(1)!important;
+  transition:transform .18s ease, box-shadow .18s ease!important;
+  will-change:transform;
+}
+.creator-actions-v3 .btn.ghost,
+.creator-actions-v3 .share-btn,
+.creator-actions-v3 .btn.ghost.is-active{
+  background:rgba(205,247,255,.16)!important;
+  color:#effcff!important;
+  border:1px solid rgba(205,247,255,.30)!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.12)!important;
+}
+.creator-actions-v3 .btn.ghost:hover,
+.creator-actions-v3 .share-btn:hover,
+.creator-actions-v3 .btn.ghost.is-active:hover{
+  background:rgba(205,247,255,.16)!important;
+  color:#effcff!important;
+  border-color:rgba(205,247,255,.30)!important;
+  filter:none!important;
+  transform:translateZ(0) scale(1.045)!important;
+  box-shadow:0 14px 30px rgba(0,0,0,.16)!important;
+}
+.creator-actions-v3 .custom-gift-fab,
+.creator-actions-v3 .custom-gift-fab.is-active{
+  background:linear-gradient(135deg,#a8f1ff,#36b7ff 52%,#166bff)!important;
+  color:#03101d!important;
+  border:0!important;
+  box-shadow:0 16px 36px rgba(54,183,255,.24)!important;
+}
+.creator-actions-v3 .custom-gift-fab:hover,
+.creator-actions-v3 .custom-gift-fab.is-active:hover{
+  filter:none!important;
+  transform:translateZ(0) scale(1.045)!important;
+  box-shadow:0 18px 40px rgba(54,183,255,.28)!important;
+}
+.creator-actions-v3 .custom-gift-fab svg,
+.creator-actions-v3 .custom-gift-fab.is-active svg{color:#03101d!important}
+
+.recent-gifts-card{margin-top:18px;padding-top:18px;border-top:1px solid rgba(168,241,255,.14)}
+.recent-gifts-card h3{margin:0 0 10px;font-size:1.05rem;letter-spacing:-.03em}
+.recent-gifts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.recent-gift-mini{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:center;padding:10px;border:1px solid rgba(168,241,255,.16);border-radius:18px;background:rgba(255,255,255,.045)}
+.recent-gift-img{width:92px;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:rgba(168,241,255,.08);display:grid;place-items:center;color:#bff4ff;font-weight:950}
+.recent-gift-img img{width:100%;height:100%;object-fit:cover;display:block}
+.recent-gift-copy{min-width:0}.recent-gift-copy b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.recent-gift-copy small{display:block;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.recent-gift-copy strong{display:block;color:#bff4ff;margin-top:6px}
+@media(max-width:760px){.recent-gifts-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.recent-gift-mini{grid-template-columns:1fr;padding:7px;border-radius:14px}.recent-gift-img{width:100%;border-radius:12px}.recent-gift-copy b{font-size:.75rem}.recent-gift-copy small{font-size:.65rem}.recent-gift-copy strong{font-size:.78rem}}

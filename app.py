@@ -980,6 +980,29 @@ def email_config_status():
     }
 
 
+
+def public_asset_url(url):
+    if not url:
+        return ''
+    url = str(url).strip()
+    if url.startswith(('http://', 'https://')):
+        return url
+    if url.startswith('/'):
+        return f'{BASE_URL}{url}'
+    return f'{BASE_URL}/{url.lstrip('/')}'
+
+
+def gift_email_image(contribution):
+    if contribution and contribution.item and contribution.item.image_url:
+        return public_asset_url(contribution.item.image_url)
+    creator = contribution.creator if contribution else None
+    if creator and creator.banner_url:
+        return public_asset_url(creator.banner_url)
+    if creator and creator.avatar_url:
+        return public_asset_url(creator.avatar_url)
+    return public_asset_url(url_for('static', filename='img/logo-banner.png'))
+
+
 def render_email_shell(title, preview, body_html, button_text=None, button_url=None, image_url=None):
     logo_url = EMAIL_LOGO_URL or f'{BASE_URL}{url_for("static", filename="img/logo-horizontal.png")}'
     hero_image = image_url or logo_url
@@ -1178,26 +1201,36 @@ def send_welcome_email(user):
 
 def send_gift_emails(contribution):
     creator = contribution.creator
-    item_title = escape(contribution.item.title if contribution.item else 'custom profile donation')
+    item_title_raw = contribution.item.title if contribution.item else 'Custom gift'
+    item_title = escape(item_title_raw)
     amount = money(contribution.amount_cents)
     is_named = contribution.supporter_name and contribution.supporter_name != 'Anonymous'
     sender = escape(contribution.supporter_name if is_named else 'Anonymous supporter')
     creator_name = escape(creator.display_name)
+    image_url = gift_email_image(contribution)
     creator_body = f"""<p><b>{sender}</b> sent <b>{amount}</b> for <b>{item_title}</b>.</p>
-    <p>The payment was confirmed by Stripe. The supporter email and private receipt details stay hidden from creator views.</p>
-    <p style='color:#b9d8e7'>Payout timing and bank details are managed through Stripe Express.</p>"""
+    <div style='margin:18px 0;padding:14px;border-radius:18px;background:#06111f;border:1px solid rgba(158,232,255,.20)'>
+      <div style='font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ee8ff;font-weight:900'>Gift</div>
+      <div style='margin-top:4px;color:#eafaff;font-weight:900'>{item_title}</div>
+      <div style='margin-top:4px;color:#b9d8e7'>{amount} has been added to your ArcticSender balance.</div>
+    </div>
+    <p>The supporter email and private receipt details stay hidden from creator views.</p>"""
     send_email_safe(
         creator.email,
         f'You received {amount} on {SITE_NAME}',
-        render_email_shell('You received a gift', f'You received {amount} on {SITE_NAME}', creator_body, 'Open dashboard', f'{BASE_URL}{url_for("dashboard")}')
+        render_email_shell('You received a gift', f'You received {amount} on {SITE_NAME}', creator_body, 'Open dashboard', f'{BASE_URL}{url_for("dashboard")}', image_url=image_url)
     )
     if contribution.supporter_email:
         sender_body = f"""<p>Your <b>{amount}</b> gift to <b>{creator_name}</b> was received.</p>
+        <div style='margin:18px 0;padding:14px;border-radius:18px;background:#06111f;border:1px solid rgba(158,232,255,.20)'>
+          <div style='font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9ee8ff;font-weight:900'>Gift</div>
+          <div style='margin-top:4px;color:#eafaff;font-weight:900'>{item_title}</div>
+        </div>
         <p>Thanks for supporting creators through {escape(SITE_NAME)}.</p>"""
         send_email_safe(
             contribution.supporter_email,
             f'Your gift to {creator.display_name} was sent',
-            render_email_shell('Gift sent successfully', f'Your gift to {creator.display_name} was sent.', sender_body, 'View creator page', f'{BASE_URL}{url_for("profile", username=creator.username)}')
+            render_email_shell('Gift sent successfully', f'Your gift to {creator.display_name} was sent.', sender_body, 'View creator page', f'{BASE_URL}{url_for("profile", username=creator.username)}', image_url=image_url)
         )
 
 
