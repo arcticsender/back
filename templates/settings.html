@@ -74,9 +74,9 @@
     <input type="hidden" name="action" value="privacy">
     <div class="pill">Page privacy</div>
     <h2>Gifters history</h2>
-    <p class="muted">Choose whether your page shows recent gift cards. Leaderboard totals still count paid gifts from named supporters.</p>
+    <p class="muted">Choose whether your public Gifters page shows supporter history. When disabled, visitors only see a private-history message.</p>
     <input type="hidden" name="show_gifters_history" value="0">
-    <label class="check clean-toggle-row"><input type="checkbox" name="show_gifters_history" value="1" {% if current_user.show_gifters_history %}checked{% endif %}> Show recent gifts on my Gifters page</label>
+    <label class="check clean-toggle-row"><input type="checkbox" name="show_gifters_history" value="1" {% if gifters_history_enabled(current_user) %}checked{% endif %}> Show Gifters history on my public page</label>
     <button class="btn full">Save privacy settings</button>
   </form>
 

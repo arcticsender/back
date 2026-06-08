@@ -41,15 +41,15 @@
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     const isSmall = width < 720;
-    const count = reduceMotion ? 0 : Math.min(isSmall ? 34 : 82, Math.floor(width / (isSmall ? 22 : 17)));
+    const count = reduceMotion ? 0 : Math.min(isSmall ? 46 : 104, Math.floor(width / (isSmall ? 18 : 14)));
     flakes = Array.from({ length: count }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      r: Math.random() * 2.25 + 0.65,
+      r: Math.random() * 2.45 + 0.75,
       s: Math.random() * 0.7 + 0.25,
       drift: Math.random() * 0.5 + 0.1,
       phase: Math.random() * Math.PI * 2,
-      opacity: Math.random() * 0.50 + 0.22,
+      opacity: Math.random() * 0.54 + 0.28,
     }));
   }
 
@@ -187,5 +187,18 @@
   document.querySelectorAll('.owner-card-tools, .owner-card-tools button, .owner-card-tools summary, .owner-card-tools input, .owner-card-tools select, .owner-card-tools textarea').forEach((el) => {
     el.addEventListener('click', (event) => event.stopPropagation(), { passive: false });
     el.addEventListener('touchstart', (event) => event.stopPropagation(), { passive: true });
+  });
+})();
+
+(() => {
+  document.querySelectorAll('[data-fill-amount][data-fill-target]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.dataset.fillTarget);
+      if (!input) return;
+      input.value = button.dataset.fillAmount;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      button.closest('.smart-amounts')?.querySelectorAll('.smart-amount-btn').forEach((btn) => btn.classList.remove('is-selected'));
+      button.classList.add('is-selected');
+    });
   });
 })();

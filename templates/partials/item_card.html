@@ -43,7 +43,7 @@
       <div class="item-meta single-stock"><span>{{ item.sold_count }} bought</span><span>{{ item.remaining_stock }} of {{ item.stock_limit }} available</span></div>
     {% endif %}
     <div class="card-actions">
-      <button type="button" class="btn full gift-modal-open" data-gift-modal="gift-modal-{{ item.id }}">Add to cart</button>
+      <button type="button" class="btn full gift-modal-open" data-gift-modal="gift-modal-{{ item.id }}">{% if item.gift_type == 'goal' %}Contribute{% else %}Add to cart{% endif %}</button>
       <button type="button" class="btn ghost icon-btn share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}" aria-label="Share {{ item.title }}"><svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.1c-.76 0-1.44.3-1.95.77L8.9 12.7a3.2 3.2 0 0 0 0-1.39l7.07-4.11A2.9 2.9 0 1 0 15 5.1c0 .23.03.45.08.66L8.02 9.87a2.95 2.95 0 1 0 0 4.26l7.1 4.15c-.05.18-.07.38-.07.58A2.95 2.95 0 1 0 18 16.1Z" fill="currentColor"/></svg></button>
     </div>
   </div>
@@ -71,12 +71,20 @@
       {% if item.gift_type == 'goal' %}
         <div class="bar"><span style="width:{{ item.progress }}%"></span></div>
         <div class="item-meta"><span>{{ money(item.funded_cents) }} funded</span><span>{{ money(item.remaining_cents) }} left</span></div>
-        <label class="modal-amount-label">Gift amount in USD<input name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ '%.2f'|format(item.remaining_cents / 100) }}" required></label>
+        {% set goal_amounts = smart_goal_amounts(item) %}
+        {% if goal_amounts %}
+          <div class="smart-amounts" aria-label="Suggested contribution amounts">
+            {% for preset in goal_amounts %}
+              <button type="button" class="smart-amount-btn" data-fill-amount="{{ preset.value }}" data-fill-target="gift-amount-{{ item.id }}"><span>{{ preset.label }}</span><b>{{ money(preset.cents) }}</b></button>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <label class="modal-amount-label">Contribution amount in USD<input id="gift-amount-{{ item.id }}" name="amount" type="number" step="0.01" min="1" max="{{ item.remaining_cents / 100 }}" value="{{ goal_amounts[0].value if goal_amounts else '1.00' }}" required></label>
       {% else %}
         <div class="locked-amount compact-locked"><span>Single gift</span><strong>{{ money(item.price_cents) }}</strong>{% if is_owner_view %}<small>{{ item.remaining_stock }} of {{ item.stock_limit }} available</small>{% endif %}</div>
       {% endif %}
       <div class="gift-modal-actions">
-        <button class="btn full">Add to cart</button>
+        <button class="btn full">{% if item.gift_type == 'goal' %}Contribute{% else %}Add to cart{% endif %}</button>
         <a class="btn ghost full" href="{{ url_for('support_item', item_id=item.id) }}">Open full page</a>
       </div>
       <button type="button" class="link-button icon-share-link share-btn" data-share-title="{{ item.title }}" data-share-url="{{ request.host_url.rstrip('/') }}{{ url_for('support_item', item_id=item.id) }}" aria-label="Copy share link"><svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.1c-.76 0-1.44.3-1.95.77L8.9 12.7a3.2 3.2 0 0 0 0-1.39l7.07-4.11A2.9 2.9 0 1 0 15 5.1c0 .23.03.45.08.66L8.02 9.87a2.95 2.95 0 1 0 0 4.26l7.1 4.15c-.05.18-.07.38-.07.58A2.95 2.95 0 1 0 18 16.1Z" fill="currentColor"/></svg></button>

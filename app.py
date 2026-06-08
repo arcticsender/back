@@ -1997,10 +1997,13 @@ def settings():
     if request.method == 'POST':
         action = request.form.get('action', '').strip()
         if action == 'privacy':
-            user.show_gifters_history = truthy_setting(request.form.get('show_gifters_history'), False)
+            # Checkbox forms submit a hidden "0" plus an optional checked "1".
+            # Use getlist() so turning the setting back on works reliably.
+            history_values = request.form.getlist('show_gifters_history')
+            user.show_gifters_history = any(truthy_setting(v, False) for v in history_values)
             db.session.commit()
             mongo_backup_model(user)
-            flash('Privacy settings saved.', 'success')
+            flash('Gifters privacy updated.', 'success')
             return redirect(url_for('settings'))
         if ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY:
             stripe_account_id = request.form.get('stripe_account_id', '').strip()[:100]
@@ -2196,6 +2199,39 @@ def truthy_setting(value, default=False):
 
 def gifters_history_enabled(user):
     return truthy_setting(getattr(user, 'show_gifters_history', True), True)
+
+
+def smart_goal_amounts(item):
+    """Return clean preset contribution amounts for crowdfund gifts."""
+    if not item or getattr(item, 'gift_type', '') != 'goal':
+        return []
+    remaining = max(0, int(getattr(item, 'remaining_cents', 0) or 0))
+    if remaining <= 0:
+        return []
+
+    def dollars(cents):
+        return f"{Decimal(cents) / Decimal(100):.2f}"
+
+    # Small = easy entry amount, mid = roughly half, max = finish the remaining goal.
+    small = min(remaining, 500)
+    mid = min(remaining, max(1000, int(round((remaining / 2) / 100)) * 100))
+    max_amount = remaining
+
+    presets = []
+    seen = set()
+    for label, cents in [('Small', small), ('Half', mid), ('Finish', max_amount)]:
+        cents = max(1, min(remaining, int(cents)))
+        if cents in seen:
+            continue
+        seen.add(cents)
+        presets.append({'label': label, 'cents': cents, 'value': dollars(cents)})
+    return presets
+
+
+@app.context_processor
+def inject_smart_goal_amounts():
+    return {'smart_goal_amounts': smart_goal_amounts, 'gifters_history_enabled': gifters_history_enabled}
+
 
 def creator_recent_sends(user, limit=30):
     # Recent gift cards only show gifts that still exist. If a creator deletes a gift,
