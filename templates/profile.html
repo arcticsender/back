@@ -46,9 +46,9 @@
             <div class="owner-card-wrap">
               {% if is_owner_view %}
               <div class="owner-card-tools">
-                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="up"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button class="tool-btn" title="Move up">↑</button></form>
-                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="down"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button class="tool-btn" title="Move down">↓</button></form>
-                <details class="owner-edit-gift"><summary class="tool-btn">Edit</summary>
+                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="up"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button type="submit" class="tool-btn" title="Move up" aria-label="Move gift up">↑</button></form>
+                <form method="post" action="{{ url_for('move_item', item_id=item.id) }}"><input type="hidden" name="direction" value="down"><input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist"><button type="submit" class="tool-btn" title="Move down" aria-label="Move gift down">↓</button></form>
+                <details class="owner-edit-gift"><summary class="tool-btn" role="button">Edit</summary>
                   <form class="owner-edit-pop" method="post" action="{{ url_for('edit_item', item_id=item.id) }}" enctype="multipart/form-data">
                     <input type="hidden" name="next" value="{{ url_for('profile', username=creator.username) }}#wishlist">
                     <label>Title<input name="title" value="{{ item.title }}" required maxlength="120"></label>

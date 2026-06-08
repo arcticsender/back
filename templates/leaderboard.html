@@ -43,10 +43,8 @@
               <div class="recent-gift-img">
                 {% if send.item and send.item.image_url %}
                   <img src="{{ send.item.image_url }}" alt="{{ send.item.title }} gift image">
-                {% elif creator.avatar_url %}
-                  <img src="{{ creator.avatar_url }}" alt="{{ creator.display_name }} profile image">
                 {% else %}
-                  <span>Gift</span>
+                  <img src="{{ default_gift_image_url() }}" alt="Default gift image">
                 {% endif %}
               </div>
               <div class="recent-gift-copy">

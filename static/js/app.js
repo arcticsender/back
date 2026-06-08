@@ -181,3 +181,11 @@
     document.querySelectorAll('.gift-modal.is-open').forEach(closeModal);
   });
 })();
+
+(() => {
+  // Keep creator management controls from triggering gift-card quick-view handlers on touch devices.
+  document.querySelectorAll('.owner-card-tools, .owner-card-tools button, .owner-card-tools summary, .owner-card-tools input, .owner-card-tools select, .owner-card-tools textarea').forEach((el) => {
+    el.addEventListener('click', (event) => event.stopPropagation(), { passive: false });
+    el.addEventListener('touchstart', (event) => event.stopPropagation(), { passive: true });
+  });
+})();

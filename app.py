@@ -830,6 +830,7 @@ def inject_globals():
         'mongo_config_status': mongo_config_status,
         'request': request,
         'csrf_token': csrf_token,
+        'default_gift_image_url': default_gift_image_url,
     }
 
 
@@ -992,15 +993,18 @@ def public_asset_url(url):
     return f'{BASE_URL}/{url.lstrip('/')}'
 
 
+def default_gift_image_url(external=False):
+    """One safe fallback for deleted gifts, missing uploads, emails, and public cards."""
+    path = url_for('static', filename='img/logo-app-icon.png')
+    return public_asset_url(path) if external else path
+
+
 def gift_email_image(contribution):
     if contribution and contribution.item and contribution.item.image_url:
         return public_asset_url(contribution.item.image_url)
-    creator = contribution.creator if contribution else None
-    if creator and creator.banner_url:
-        return public_asset_url(creator.banner_url)
-    if creator and creator.avatar_url:
-        return public_asset_url(creator.avatar_url)
-    return public_asset_url(url_for('static', filename='img/logo-banner.png'))
+    # If the original gift was deleted, do not show the creator profile/banner as the gift.
+    # Use the neutral ArcticSender gift image so receipts and recent-gift cards stay accurate.
+    return default_gift_image_url(external=True)
 
 
 def render_email_shell(title, preview, body_html, button_text=None, button_url=None, image_url=None):
@@ -2033,19 +2037,27 @@ def move_item(item_id):
     user = current_user()
     if item.creator_id != user.id and not user.is_admin:
         abort(403)
-    direction = request.form.get('direction', '')
+
+    direction = request.form.get('direction', '').strip().lower()
     siblings = item_order_query(WishlistItem.query.filter_by(creator_id=item.creator_id)).all()
     index = next((i for i, sibling in enumerate(siblings) if sibling.id == item.id), None)
     if index is None:
         return redirect_after_item_save('profile', username=item.creator.username)
+
+    # Older gifts can share the same display_order after a migration. Normalize first so
+    # mobile up/down controls always create a visible, saved placement change.
+    for pos, sibling in enumerate(siblings):
+        sibling.display_order = (pos + 1) * 10
+
     swap_index = index - 1 if direction == 'up' else index + 1 if direction == 'down' else None
     if swap_index is not None and 0 <= swap_index < len(siblings):
-        other = siblings[swap_index]
-        item.display_order, other.display_order = other.display_order, item.display_order
+        item.display_order, siblings[swap_index].display_order = siblings[swap_index].display_order, item.display_order
         db.session.commit()
-        mongo_backup_model(item)
-        mongo_backup_model(other)
+        for sibling in siblings:
+            mongo_backup_model(sibling)
         flash('Gift order updated.', 'success')
+    else:
+        db.session.commit()
     return redirect_after_item_save('profile', username=item.creator.username)
 
 
