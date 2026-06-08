@@ -91,7 +91,13 @@ STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
 STRIPE_AUTO_TRANSFERS = os.getenv('STRIPE_AUTO_TRANSFERS', 'false').lower() == 'true'
-STRIPE_CONNECT_DIRECT_PAYOUTS = os.getenv('STRIPE_CONNECT_DIRECT_PAYOUTS', 'true').lower() == 'true'
+# IMPORTANT: keep this false for the ArcticSender wallet model.
+# False = supporter payments land in the platform Stripe balance, then the creator's
+# website balance is credited after the webhook confirms payment. Creators only use
+# Stripe Express when they cash out.
+# True is the old destination-charge mode where money goes to the creator's
+# connected Stripe balance immediately.
+STRIPE_CONNECT_DIRECT_PAYOUTS = os.getenv('STRIPE_CONNECT_DIRECT_PAYOUTS', 'false').lower() == 'true'
 STRIPE_DEFAULT_COUNTRY = os.getenv('STRIPE_DEFAULT_COUNTRY', 'CA').upper().strip() or 'CA'
 PLATFORM_FEE_PERCENT = Decimal(os.getenv('PLATFORM_FEE_PERCENT', '2'))
 AUTO_ADMIN_FIRST_USER = os.getenv('AUTO_ADMIN_FIRST_USER', 'true').lower() == 'true'
@@ -389,7 +395,14 @@ def platform_fee_for_cents(amount_cents):
 
 
 def creator_stripe_ready(user):
-    return bool(user and user.stripe_account_id and user.stripe_payouts_enabled and user.stripe_charges_enabled)
+    if not user or not user.stripe_account_id:
+        return False
+    # In wallet mode creators only need payouts enabled for cashouts.
+    # In legacy direct-payout mode Stripe also needs charges enabled because Checkout
+    # creates destination charges on the connected account.
+    if STRIPE_CONNECT_DIRECT_PAYOUTS:
+        return bool(user.stripe_payouts_enabled and user.stripe_charges_enabled)
+    return bool(user.stripe_payouts_enabled)
 
 
 def stripe_key_mode():
@@ -531,10 +544,14 @@ def sync_stripe_account_status(user):
 def stripe_payout_status_label(user):
     if not user or not user.stripe_account_id:
         return 'Not connected'
-    if user.stripe_payouts_enabled and user.stripe_charges_enabled:
-        return 'Ready for automatic payouts'
-    if user.stripe_payouts_enabled and not user.stripe_charges_enabled:
-        return 'Payouts enabled, payments not fully enabled'
+    if STRIPE_CONNECT_DIRECT_PAYOUTS:
+        if user.stripe_payouts_enabled and user.stripe_charges_enabled:
+            return 'Ready for direct Stripe payouts'
+        if user.stripe_payouts_enabled and not user.stripe_charges_enabled:
+            return 'Payouts enabled, payments not fully enabled'
+    else:
+        if user.stripe_payouts_enabled:
+            return 'Ready for balance cashouts'
     if user.stripe_onboarding_complete:
         return 'Submitted, waiting on Stripe verification'
     return 'Onboarding incomplete'
@@ -2230,10 +2247,10 @@ def stripe_connect():
                 country=user.stripe_country or STRIPE_DEFAULT_COUNTRY,
                 email=user.email,
                 business_type='individual',
-                capabilities={
+                capabilities=({'transfers': {'requested': True}} if not STRIPE_CONNECT_DIRECT_PAYOUTS else {
                     'card_payments': {'requested': True},
                     'transfers': {'requested': True},
-                },
+                }),
                 business_profile={
                     'url': f'{BASE_URL}{url_for("profile", username=user.username)}'
                 },
@@ -2242,7 +2259,7 @@ def stripe_connect():
             user.stripe_account_id = account.id
             user.stripe_country = account.get('country') or user.stripe_country or STRIPE_DEFAULT_COUNTRY
             db.session.commit()
-            flash('Stripe account created. Finish the onboarding form to enable payments and payouts.', 'info')
+            flash('Stripe payout account created. Finish onboarding so you can cash out website balance.', 'info')
         else:
             # Refresh status first so the settings page/button states stay honest.
             stripe_account_details(user)
@@ -2267,8 +2284,11 @@ def stripe_connect_return():
     details = stripe_account_details(user)
     if details.get('error'):
         flash(details['error'], 'danger')
-    elif user.stripe_payouts_enabled and user.stripe_charges_enabled:
-        flash('Stripe payouts and payments are ready. Supporters can now check out on your page.', 'success')
+    elif creator_stripe_ready(user):
+        if STRIPE_CONNECT_DIRECT_PAYOUTS:
+            flash('Stripe direct payouts and payments are ready. Supporters can now check out on your page.', 'success')
+        else:
+            flash('Stripe payouts are ready. Supporter payments will still sit in your ArcticSender balance until you cash out.', 'success')
     elif details.get('currently_due') or details.get('past_due'):
         flash('Stripe still needs more information. Click Continue Stripe Onboarding to finish: ' + ', '.join((details.get('currently_due') or details.get('past_due'))[:4]), 'warning')
     elif user.stripe_onboarding_complete:
@@ -2316,7 +2336,7 @@ def stripe_connect_reset():
         flash('There is no Stripe account to reset.', 'info')
         return redirect(url_for('settings'))
     if user.stripe_payouts_enabled or user.stripe_charges_enabled:
-        flash('This Stripe account already has payments or payouts enabled, so it was not reset. Use Stripe Express Dashboard to manage it.', 'warning')
+        flash('This Stripe account already has payouts enabled, so it was not reset. Use Stripe Express Dashboard to manage bank details.', 'warning')
         return redirect(url_for('settings'))
     old_account = user.stripe_account_id
     user.stripe_account_id = ''
@@ -2334,7 +2354,7 @@ def stripe_connect_reset():
 def cashout():
     user = current_user()
     if STRIPE_CONNECT_DIRECT_PAYOUTS:
-        flash('Cashouts are handled automatically by Stripe Connect. Open your Stripe Express Dashboard to manage payout timing and bank details.', 'info')
+        flash('This site is in legacy direct-payout mode. Turn STRIPE_CONNECT_DIRECT_PAYOUTS=false to use website balance cashouts.', 'info')
         return redirect(url_for('dashboard'))
     if user.balance_cents <= 0:
         flash('Your balance is $0.00, so there is nothing to cash out yet.', 'warning')
@@ -2379,7 +2399,7 @@ def admin():
         'paid_cents': sum(c.amount_cents for c in Contribution.query.filter_by(status='paid').all()),
         'pending_cents': sum(c.amount_cents for c in Contribution.query.filter_by(status='pending').all()),
         'verified_users': User.query.filter_by(email_verified=True).count(),
-        'stripe_ready': User.query.filter_by(stripe_charges_enabled=True, stripe_payouts_enabled=True).count(),
+        'stripe_ready': User.query.filter_by(stripe_payouts_enabled=True).count(),
         'suspended': User.query.filter_by(is_suspended=True).count(),
     }
     return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals)

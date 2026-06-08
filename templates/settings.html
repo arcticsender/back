@@ -15,7 +15,7 @@
       <div>
         <b>Stripe Connect</b><br>
         <span class="muted">Status: {{ stripe_payout_status_label(current_user) }}</span><br>
-        <span class="muted">Default ArcticSender fee: {{ platform_fee_percent }}%. Creators manage bank details, identity verification, and payout timing in Stripe Express.</span>
+        <span class="muted">Supporter payments stay in the creator's ArcticSender balance first. Stripe Express is only used for bank cashouts.</span>
       </div>
 
       {% if stripe_config.issues %}
@@ -37,7 +37,7 @@
       <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));">
         <div class="stat-card"><span>Mode</span><b>{{ stripe_config.mode|title }}</b></div>
         <div class="stat-card"><span>Account</span><b>{% if current_user.stripe_account_id %}Created{% else %}Not started{% endif %}</b></div>
-        <div class="stat-card"><span>Payments</span><b>{% if current_user.stripe_charges_enabled %}Enabled{% else %}Not ready{% endif %}</b></div>
+        <div class="stat-card"><span>Website balance</span><b>Enabled</b></div>
         <div class="stat-card"><span>Payouts</span><b>{% if current_user.stripe_payouts_enabled %}Enabled{% else %}Not ready{% endif %}</b></div>
       </div>
 
@@ -95,12 +95,12 @@
 
       <div style="display:grid;gap:10px;">
         <a class="btn full" href="{{ url_for('stripe_connect') }}">
-          {% if current_user.stripe_account_id and not current_user.stripe_payouts_enabled %}Continue Stripe Onboarding{% elif current_user.stripe_account_id %}Update Stripe payout setup{% else %}Connect Stripe{% endif %}
+          {% if current_user.stripe_account_id and not current_user.stripe_payouts_enabled %}Continue cashout setup{% elif current_user.stripe_account_id %}Update bank payout setup{% else %}Connect bank payout account{% endif %}
         </a>
         {% if current_user.stripe_account_id and current_user.stripe_onboarding_complete %}
-          <a class="btn ghost full" href="{{ url_for('stripe_express_dashboard') }}">Open Stripe Express Dashboard</a>
+          <a class="btn ghost full" href="{{ url_for('stripe_express_dashboard') }}">Open payout dashboard</a>
         {% elif current_user.stripe_account_id %}
-          <button class="btn ghost full" type="button" disabled title="Finish onboarding first">Express Dashboard unlocks after onboarding</button>
+          <button class="btn ghost full" type="button" disabled title="Finish onboarding first">Payout dashboard unlocks after onboarding</button>
         {% endif %}
       </div>
     </div>
