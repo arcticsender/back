@@ -68,6 +68,17 @@
     {% endif %}
   </div>
 
+
+  <form class="panel form wide frost-card privacy-settings-card" method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="privacy">
+    <div class="pill">Page privacy</div>
+    <h2>Gifters history</h2>
+    <p class="muted">Choose whether your page shows recent gift cards. Leaderboard totals still count paid gifts from named supporters.</p>
+    <label class="check clean-toggle-row"><input type="checkbox" name="show_gifters_history" {% if current_user.show_gifters_history %}checked{% endif %}> Show recent gifts on my Gifters page</label>
+    <button class="btn full">Save privacy settings</button>
+  </form>
+
   {% if current_user.stripe_account_id and not current_user.stripe_payouts_enabled and not current_user.stripe_charges_enabled %}
     <form class="panel form wide frost-card" method="post" action="{{ url_for('stripe_connect_reset') }}">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

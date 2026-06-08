@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}Secure payment | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="section page-head dash-head embedded-checkout-head">
+<section class="section page-head dash-head embedded-checkout-head" id="payment-top">
   <div>
     <div class="pill">Secure payment</div>
     <h1>Complete your gift</h1>
-    <p>Pay securely below without leaving {{ site_name }}.</p>
+    <p>Review your total, then complete payment securely without leaving {{ site_name }}.</p>
   </div>
 </section>
 
@@ -34,7 +34,9 @@
     <p class="muted tiny-note">The processing fee is covered by the sender so the creator receives the full gift amount in their website balance.</p>
   </aside>
 
-  <div class="panel frost-card embedded-payment-card">
+  <div class="panel frost-card embedded-payment-card" id="payment-panel">
+    <div class="embedded-payment-head"><span class="pill">Card payment</span><b>{{ money(checkout_total_cents) }}</b></div>
+    <p class="muted embedded-payment-note">Stripe securely handles the payment form below.</p>
     <div id="embedded-checkout"></div>
     <noscript><p class="muted">JavaScript is required to complete secure card payment.</p></noscript>
   </div>
@@ -43,6 +45,10 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 (async function () {
+  const panel = document.getElementById('payment-panel');
+  if (panel) {
+    window.setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 260);
+  }
   const stripe = Stripe({{ stripe_publishable_key|tojson }});
   const checkout = await stripe.initEmbeddedCheckout({
     clientSecret: {{ checkout_session.client_secret|tojson }}

@@ -36,6 +36,7 @@
         {% endfor %}
       </div>
 
+      {% if creator.show_gifters_history %}
       <div class="recent-gifts-card">
         <h3>Recent gifts</h3>
         <div class="recent-gifts-grid">
@@ -62,6 +63,7 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
     </section>
   </div>
 </section>

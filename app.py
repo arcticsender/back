@@ -217,6 +217,7 @@ class User(db.Model):
     last_failed_login_at = db.Column(db.DateTime, nullable=True)
     admin_note = db.Column(db.Text, default='')
     gift_sort = db.Column(db.String(20), nullable=False, default='recent')
+    show_gifters_history = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     wishlist_items = db.relationship('WishlistItem', backref='creator', lazy=True, cascade='all, delete-orphan')
@@ -1994,6 +1995,13 @@ def profile_settings():
 def settings():
     user = current_user()
     if request.method == 'POST':
+        action = request.form.get('action', '').strip()
+        if action == 'privacy':
+            user.show_gifters_history = bool(request.form.get('show_gifters_history'))
+            db.session.commit()
+            mongo_backup_model(user)
+            flash('Privacy settings saved.', 'success')
+            return redirect(url_for('settings'))
         if ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY:
             stripe_account_id = request.form.get('stripe_account_id', '').strip()[:100]
             if stripe_account_id and not stripe_account_id.startswith('acct_'):
@@ -2210,7 +2218,7 @@ def profile(username):
     owns_page = bool(viewer and (viewer.id == user.id or viewer.is_admin))
     item_query = WishlistItem.query.filter_by(creator_id=user.id) if owns_page else WishlistItem.query.filter_by(creator_id=user.id, is_active=True)
     items = gift_sort_query(item_query, user.gift_sort).all()
-    recent_sends = creator_recent_sends(user, 4)
+    recent_sends = creator_recent_sends(user, 4) if user.show_gifters_history else []
     named_count = len(creator_leaderboard_rows(user, 1000))
     return render_template('profile.html', creator=user, items=items, recent_sends=recent_sends, named_count=named_count)
 
@@ -2219,7 +2227,7 @@ def profile(username):
 def public_leaderboard(username):
     user = User.query.filter_by(username=username).first_or_404()
     leaderboard = creator_leaderboard_rows(user, 50)
-    recent_sends = creator_recent_sends(user, 40)
+    recent_sends = creator_recent_sends(user, 40) if user.show_gifters_history else []
     return render_template('leaderboard.html', creator=user, leaderboard=leaderboard, recent_sends=recent_sends)
 
 
@@ -2884,6 +2892,7 @@ def migrate_sqlite_columns():
                 'last_failed_login_at': "ALTER TABLE user ADD COLUMN last_failed_login_at DATETIME",
                 'admin_note': "ALTER TABLE user ADD COLUMN admin_note TEXT DEFAULT ''",
                 'gift_sort': "ALTER TABLE user ADD COLUMN gift_sort VARCHAR(20) DEFAULT 'recent' NOT NULL",
+                'show_gifters_history': "ALTER TABLE user ADD COLUMN show_gifters_history BOOLEAN DEFAULT 1 NOT NULL",
             }
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:

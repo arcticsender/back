@@ -41,15 +41,15 @@
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     const isSmall = width < 720;
-    const count = reduceMotion ? 0 : Math.min(isSmall ? 24 : 64, Math.floor(width / (isSmall ? 30 : 22)));
+    const count = reduceMotion ? 0 : Math.min(isSmall ? 34 : 82, Math.floor(width / (isSmall ? 22 : 17)));
     flakes = Array.from({ length: count }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      r: Math.random() * 2.05 + 0.55,
+      r: Math.random() * 2.25 + 0.65,
       s: Math.random() * 0.7 + 0.25,
       drift: Math.random() * 0.5 + 0.1,
       phase: Math.random() * Math.PI * 2,
-      opacity: Math.random() * 0.42 + 0.16,
+      opacity: Math.random() * 0.50 + 0.22,
     }));
   }
 
