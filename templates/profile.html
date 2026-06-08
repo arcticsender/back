@@ -1,41 +1,46 @@
 {% extends 'base.html' %}
 {% block title %}{{ creator.display_name }} | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="profile-hero section">
-  <div class="profile-banner" {% if creator.banner_url %}style="background-image:url('{{ creator.banner_url }}')"{% endif %}></div>
-  <div class="profile-main panel frost-card">
-    <div class="avatar big{% if creator.avatar_url %} has-image{% endif %}">{% if creator.avatar_url %}<img src="{{ creator.avatar_url }}" alt="{{ creator.display_name }} profile photo" loading="lazy">{% else %}{{ creator.display_name[:2]|upper }}{% endif %}</div>
-    <div class="profile-copy">
-      <div class="pill">Creator cash gift page</div>
-      <h1>{{ creator.display_name }}</h1>
-      <p>@{{ creator.username }}</p>
-      <p>{{ creator.bio or 'Creator cash gift page powered by ArcticSender.' }}</p>
-      {% if creator.socials %}<pre class="socials">{{ creator.socials }}</pre>{% endif %}
-      <div class="hero-actions">
-        <a class="btn" href="{{ url_for('donate', username=creator.username) }}">Add custom donation</a>
-        <a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">View cart{% if cart_count %} · {{ cart_count }}{% endif %}</a>
-        <a class="btn ghost" href="{{ url_for('public_leaderboard', username=creator.username) }}">Sends{% if named_count %} · {{ named_count }}{% endif %}</a>
-        <button type="button" class="btn ghost share-btn" data-share-title="{{ creator.display_name }} on {{ site_name }}" data-share-url="{{ request.url }}">Share</button>
+<section class="creator-page section">
+  <div class="creator-shell">
+    <div class="creator-hero frost-card">
+      <div class="profile-banner creator-banner" {% if creator.banner_url %}style="background-image:url('{{ creator.banner_url }}')"{% endif %}></div>
+      <div class="creator-info">
+        <div class="avatar big{% if creator.avatar_url %} has-image{% endif %}">{% if creator.avatar_url %}<img src="{{ creator.avatar_url }}" alt="{{ creator.display_name }} profile photo" loading="lazy">{% else %}{{ creator.display_name[:2]|upper }}{% endif %}</div>
+        <div class="creator-copy">
+          <span class="pill">@{{ creator.username }}</span>
+          <h1>{{ creator.display_name }}</h1>
+          <p>{{ creator.bio or 'Send cash gifts, fund goals, or add a custom message.' }}</p>
+          {% if creator.socials %}<pre class="socials">{{ creator.socials }}</pre>{% endif %}
+        </div>
+      </div>
+      <div class="creator-actions">
+        <a class="btn" href="{{ url_for('donate', username=creator.username) }}">Custom gift</a>
+        <a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Cart{% if cart_count %} · {{ cart_count }}{% endif %}</a>
+        <button type="button" class="btn ghost share-btn" data-share-title="{{ creator.display_name }} on {{ site_name }}" data-share-url="{{ request.url }}">Share page</button>
       </div>
     </div>
+
+    <div class="creator-layout">
+      <main class="creator-main-list">
+        <div class="section-head clean-head"><div><span class="pill">Wishlist</span><h2>Cash gifts</h2></div><span>{{ items|length }} active</span></div>
+        <div class="grid cards-grid creator-cards">{% for item in items %}{% include 'partials/item_card.html' %}{% else %}<div class="empty">This creator has not added cash gifts yet. You can still add a custom donation to your cart.</div>{% endfor %}</div>
+      </main>
+      <aside class="creator-sidebar frost-card">
+        <div class="pill">Latest sends</div>
+        <h2>Support feed</h2>
+        <p class="muted">Supporter emails and payment details stay private.</p>
+        <div class="send-feed">
+        {% for send in recent_sends %}
+          <div class="recent-send-row">
+            <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom support{% endif %}</small></div>
+            <strong>{{ money(send.amount_cents) }}</strong>
+          </div>
+        {% else %}<p class="muted">No sends yet.</p>{% endfor %}
+        </div>
+        <a class="btn ghost full" href="{{ url_for('public_leaderboard', username=creator.username) }}">View sends</a>
+      </aside>
+    </div>
   </div>
-</section>
-<section class="section profile-grid clean-profile-grid">
-  <div>
-    <div class="section-head"><h2>Cash gifts</h2><span>{{ items|length }} active</span></div>
-    <div class="grid cards-grid">{% for item in items %}{% include 'partials/item_card.html' %}{% else %}<div class="empty">This creator has not added cash gifts yet. You can still add a custom donation to your cart.</div>{% endfor %}</div>
-  </div>
-  <aside class="panel frost-card recent-sends-card">
-    <div class="pill">Recent sends</div>
-    <h2>Latest support</h2>
-    <p class="muted">Named and anonymous sends can appear here. Emails and private payment details are never public.</p>
-    {% for send in recent_sends %}
-      <div class="recent-send-row">
-        <div><b>{{ send.supporter_name if send.supporter_name and send.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</b><small>{% if send.item %}{{ send.item.title }}{% else %}Custom support{% endif %}</small></div>
-        <strong>{{ money(send.amount_cents) }}</strong>
-      </div>
-    {% else %}<p class="muted">No sends yet.</p>{% endfor %}
-    <a class="btn ghost full" href="{{ url_for('public_leaderboard', username=creator.username) }}">View leaderboard and all recent sends</a>
-  </aside>
 </section>
 {% endblock %}

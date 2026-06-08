@@ -118,18 +118,18 @@
     {% endif %}
 
     <div class="upload-grid">
-      <label class="upload-box">
+      <div class="upload-box">
         <span>Profile image</span>
         <small>Best: square image. The app auto-crops to 512×512 WEBP.</small>
         {% if current_user.avatar_url %}<img class="settings-avatar-preview" src="{{ current_user.avatar_url }}" alt="Current profile image">{% endif %}
-        <input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-      </label>
-      <label class="upload-box">
+        <label class="file-picker compact-file"><input name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose profile image</b><small class="file-picker-name">No image selected</small></label>
+      </div>
+      <div class="upload-box">
         <span>Profile banner</span>
         <small>Best: wide image, 3:1 ratio. The app auto-crops to 2400×800 WEBP.</small>
         {% if current_user.banner_url %}<img class="settings-banner-preview" src="{{ current_user.banner_url }}" alt="Current banner image">{% endif %}
-        <input name="banner" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-      </label>
+        <label class="file-picker compact-file"><input name="banner" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><b class="file-picker-button">Choose banner image</b><small class="file-picker-name">No image selected</small></label>
+      </div>
     </div>
     <p class="muted upload-note">Storage saver: uploads are resized, metadata is stripped, converted to WEBP, and old replaced profile/banner uploads are deleted automatically.</p>
     <button class="btn full">Save profile</button>

@@ -97,3 +97,22 @@
     });
   });
 })();
+
+(() => {
+  document.querySelectorAll('.file-picker input[type="file"]').forEach((input) => {
+    const wrap = input.closest('.file-picker');
+    const name = wrap?.querySelector('.file-picker-name');
+    input.addEventListener('change', () => {
+      if (name) name.textContent = input.files?.[0]?.name || 'No image selected';
+    });
+  });
+
+  const typeSelect = document.querySelector('select[name="gift_type"]');
+  const stockField = document.querySelector('.stock-field');
+  const syncStockField = () => {
+    if (!typeSelect || !stockField) return;
+    stockField.style.display = typeSelect.value === 'single' ? '' : 'none';
+  };
+  typeSelect?.addEventListener('change', syncStockField);
+  syncStockField();
+})();

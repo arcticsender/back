@@ -229,6 +229,7 @@ class WishlistItem(db.Model):
     price_cents = db.Column(db.Integer, nullable=False, default=0)
     funded_cents = db.Column(db.Integer, nullable=False, default=0)
     gift_type = db.Column(db.String(20), default='single')  # single or goal
+    stock_count = db.Column(db.Integer, nullable=False, default=1)  # single purchase quantity, 1-99
     priority = db.Column(db.String(20), default='normal')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
@@ -242,22 +243,47 @@ class WishlistItem(db.Model):
         return self.funded_cents / 100
 
     @property
+    def stock_limit(self):
+        if self.gift_type != 'single':
+            return 1
+        try:
+            return min(99, max(1, int(self.stock_count or 1)))
+        except Exception:
+            return 1
+
+    @property
+    def sold_count(self):
+        if self.gift_type != 'single' or self.price_cents <= 0:
+            return 0
+        return min(self.stock_limit, max(0, self.funded_cents // self.price_cents))
+
+    @property
+    def remaining_stock(self):
+        if self.gift_type != 'single':
+            return 0
+        return max(0, self.stock_limit - self.sold_count)
+
+    @property
     def remaining_cents(self):
+        if self.gift_type == 'single':
+            return self.price_cents if self.remaining_stock > 0 else 0
         return max(0, self.price_cents - self.funded_cents)
 
     @property
     def progress(self):
-        if self.price_cents <= 0:
+        if self.gift_type != 'goal' or self.price_cents <= 0:
             return 0
         return min(100, round((self.funded_cents / self.price_cents) * 100))
 
     @property
     def is_funded(self):
+        if self.gift_type == 'single':
+            return self.remaining_stock <= 0
         return self.price_cents > 0 and self.funded_cents >= self.price_cents
 
     @property
     def type_label(self):
-        return 'Crowdfund goal' if self.gift_type == 'goal' else 'Cash gift item'
+        return 'Crowdfund goal' if self.gift_type == 'goal' else 'Single cash gift'
 
 
 class Contribution(db.Model):
@@ -561,7 +587,10 @@ def cart_entries_for_creator(creator):
             if not item or item.creator_id != creator.id or not item.is_active or item.is_funded:
                 changed = True
                 continue
-            amount_cents = min(amount_cents, item.remaining_cents)
+            if item.gift_type == 'single':
+                amount_cents = item.price_cents
+            else:
+                amount_cents = min(amount_cents, item.remaining_cents)
             if amount_cents < MIN_GIFT_CENTS:
                 changed = True
                 continue
@@ -595,6 +624,21 @@ def cents_from_price(value):
         return max(0, int(cents))
     except Exception:
         return 0
+
+
+def stock_from_form(value):
+    try:
+        return min(99, max(1, int(value or 1)))
+    except Exception:
+        return 1
+
+
+def single_item_count_in_cart(cart, item_id):
+    count = 0
+    for entry in (cart or {}).get('items', []):
+        if entry.get('kind') == 'item' and int(entry.get('item_id') or 0) == int(item_id):
+            count += 1
+    return count
 
 
 def current_user():
@@ -800,6 +844,7 @@ def delete_local_upload(url):
     try:
         if os.path.isfile(path):
             os.remove(path)
+        mongo_delete_upload(filename)
     except OSError as exc:
         app.logger.warning('Could not remove old upload %s: %s', filename, exc)
 
@@ -855,6 +900,7 @@ def save_upload(file, image_kind='generic'):
             image.thumbnail(target_size, resample)
 
         image.save(path, 'WEBP', quality=spec['quality'], method=6, optimize=True)
+        mongo_backup_upload_file(path)
         return url_for('static', filename=f'img/uploads/{filename}')
     except Exception as exc:
         app.logger.warning('Image processing failed: %s', exc)
@@ -1153,6 +1199,83 @@ def mongo_database():
         return None
 
 
+def mongo_backup_upload_file(path):
+    database = mongo_database()
+    if database is None or not path or not os.path.isfile(path):
+        return False
+    try:
+        filename = os.path.basename(path)
+        with open(path, 'rb') as handle:
+            data = handle.read()
+        database['uploaded_files'].update_one(
+            {'filename': filename},
+            {'$set': {
+                'filename': filename,
+                'content_type': 'image/webp',
+                'data': data,
+                'size': len(data),
+                '_synced_at': datetime.now(UTC).isoformat(),
+            }},
+            upsert=True,
+        )
+        return True
+    except Exception as exc:
+        app.logger.warning('MongoDB upload backup failed: %s', exc)
+        return False
+
+
+def mongo_delete_upload(filename):
+    database = mongo_database()
+    if database is None or not filename:
+        return False
+    try:
+        database['uploaded_files'].delete_one({'filename': os.path.basename(filename)})
+        return True
+    except Exception as exc:
+        app.logger.warning('MongoDB upload delete failed: %s', exc)
+        return False
+
+
+def mongo_backup_uploads_all():
+    database = mongo_database()
+    if database is None or not os.path.isdir(app.config['UPLOAD_FOLDER']):
+        return False
+    saved = 0
+    for name in os.listdir(app.config['UPLOAD_FOLDER']):
+        path = os.path.join(app.config['UPLOAD_FOLDER'], name)
+        if os.path.isfile(path) and mongo_backup_upload_file(path):
+            saved += 1
+    if saved:
+        app.logger.info('Backed up %s uploaded image files to MongoDB.', saved)
+    return bool(saved)
+
+
+def mongo_restore_uploads():
+    database = mongo_database()
+    if database is None:
+        return 0
+    restored = 0
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        for doc in database['uploaded_files'].find({}):
+            filename = secure_filename(doc.get('filename') or '')
+            data = doc.get('data')
+            if not filename or data is None:
+                continue
+            path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.isfile(path):
+                continue
+            with open(path, 'wb') as handle:
+                handle.write(bytes(data))
+            restored += 1
+    except Exception as exc:
+        app.logger.warning('MongoDB upload restore failed: %s', exc)
+        return 0
+    if restored:
+        app.logger.info('Restored %s uploaded image files from MongoDB.', restored)
+    return restored
+
+
 def mongo_models():
     return [User, WishlistItem, CheckoutOrder, Contribution, CashoutRequest, PasswordResetToken]
 
@@ -1279,7 +1402,11 @@ def credit_contribution(contribution, commit=True, send_email=True):
         creator.balance_cents += contribution.amount_cents
 
     if contribution.item:
-        contribution.item.funded_cents = min(contribution.item.price_cents, contribution.item.funded_cents + contribution.amount_cents)
+        if contribution.item.gift_type == 'single':
+            max_funded = contribution.item.price_cents * contribution.item.stock_limit
+            contribution.item.funded_cents = min(max_funded, contribution.item.funded_cents + contribution.amount_cents)
+        else:
+            contribution.item.funded_cents = min(contribution.item.price_cents, contribution.item.funded_cents + contribution.amount_cents)
     if commit:
         db.session.commit()
     mongo_backup_model(contribution)
@@ -1699,6 +1826,7 @@ def new_item():
             product_url=request.form.get('product_url', '').strip()[:500],
             price_cents=price_cents,
             gift_type=gift_type,
+            stock_count=stock_from_form(request.form.get('stock_count')) if gift_type == 'single' else 1,
             priority=request.form.get('priority', 'normal')
         )
         db.session.add(item)
@@ -1725,6 +1853,7 @@ def edit_item(item_id):
             return redirect(url_for('edit_item', item_id=item.id))
         item.price_cents = new_price_cents
         item.gift_type = request.form.get('gift_type', item.gift_type) if request.form.get('gift_type') in {'single', 'goal'} else item.gift_type
+        item.stock_count = stock_from_form(request.form.get('stock_count')) if item.gift_type == 'single' else 1
         item.priority = request.form.get('priority', item.priority)
         item.is_active = bool(request.form.get('is_active'))
         image_url = request.form.get('image_url', '').strip()[:300]
@@ -1833,7 +1962,7 @@ def support_item(item_id):
         return redirect(url_for('profile', username=item.creator.username))
     if request.method == 'POST':
         if item.gift_type == 'single':
-            amount_cents = item.remaining_cents
+            amount_cents = item.price_cents
         else:
             amount_cents = cents_from_price(request.form.get('amount', item.remaining_cents / 100))
             amount_cents = min(max(amount_cents, MIN_GIFT_CENTS), item.remaining_cents)
@@ -1845,6 +1974,9 @@ def support_item(item_id):
             clear_cart()
             cart = get_cart()
             flash('Your cart was reset because gifts can only be checked out for one creator at a time.', 'info')
+        if item.gift_type == 'single' and single_item_count_in_cart(cart, item.id) >= item.remaining_stock:
+            flash('No more stock is available for this cash gift.', 'warning')
+            return redirect(url_for('profile', username=item.creator.username))
         cart['creator_id'] = item.creator_id
         cart.setdefault('items', []).append({'kind': 'item', 'item_id': item.id, 'amount_cents': amount_cents})
         save_cart(cart)
@@ -1874,6 +2006,16 @@ def cart(username):
             if not creator_stripe_ready(creator):
                 flash('This creator has not finished Stripe payout setup yet, so checkout is not available.', 'danger')
                 return redirect(url_for('profile', username=creator.username))
+        requested_single_counts = {}
+        for entry in entries:
+            item = entry.get('item')
+            if item and item.gift_type == 'single':
+                requested_single_counts[item.id] = requested_single_counts.get(item.id, 0) + 1
+        for item_id, requested_count in requested_single_counts.items():
+            item = db.session.get(WishlistItem, item_id)
+            if not item or item.remaining_stock < requested_count:
+                flash('One of the single purchase gifts just sold out. Please review your cart.', 'warning')
+                return redirect(url_for('cart', username=creator.username))
         order = CheckoutOrder(
             token=secrets.token_urlsafe(18),
             creator_id=creator.id,
@@ -2414,6 +2556,10 @@ def migrate_sqlite_columns():
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:
                     conn.exec_driver_sql(sql)
+        if 'wishlist_item' in tables:
+            columns = [row[1] for row in conn.exec_driver_sql('PRAGMA table_info(wishlist_item)').fetchall()]
+            if 'stock_count' not in columns:
+                conn.exec_driver_sql("ALTER TABLE wishlist_item ADD COLUMN stock_count INTEGER DEFAULT 1 NOT NULL")
         if 'checkout_order' in tables:
             columns = [row[1] for row in conn.exec_driver_sql('PRAGMA table_info(checkout_order)').fetchall()]
             if 'platform_fee_cents' not in columns:
@@ -2462,10 +2608,12 @@ def start_self_ping_thread():
 with app.app_context():
     db.create_all()
     migrate_sqlite_columns()
+    mongo_restore_uploads()
     restored_from_mongo = mongo_restore_all_if_empty()
     ensure_admin_account()
     if mongo_config_status()['enabled'] and not restored_from_mongo:
         mongo_backup_all()
+        mongo_backup_uploads_all()
 
 start_self_ping_thread()
 

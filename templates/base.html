@@ -19,7 +19,7 @@
   <div class="bg-orb orb-a"></div>
   <div class="bg-orb orb-b"></div>
   <header class="nav">
-    <a href="{{ url_for('home') }}" class="brand" aria-label="{{ site_name }} home"><img class="brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span class="brand-word"><span>Arctic</span><span>Sender</span></span></a>
+    <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="brand" aria-label="{{ site_name }} home"><img class="brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span class="brand-word"><span>Arctic</span><span>Sender</span></span></a>
     <nav class="nav-links">
       {% if current_user %}
         <span class="nav-balance">Received <b>{{ money(current_user.lifetime_earned_cents) }}</b></span>

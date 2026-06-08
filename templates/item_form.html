@@ -21,6 +21,11 @@
       <input name="price" type="number" min="1" step="0.01" value="{{ item.price if item else '' }}" required>
     </label>
 
+    <label class="stock-field">Stock count for single purchase gifts
+      <input name="stock_count" type="number" min="1" max="99" step="1" value="{{ item.stock_limit if item else 1 }}">
+      <small>Max 99. This only applies to single purchase cash gifts.</small>
+    </label>
+
     <label>Description
       <textarea name="description" rows="5">{{ item.description if item else '' }}</textarea>
     </label>
@@ -42,8 +47,11 @@
       <label class="check"><input type="checkbox" name="remove_image"> Remove current image</label>
     {% endif %}
 
-    <label>Upload new image
+    <label class="file-picker">
+      <span>Upload new image</span>
       <input name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <b class="file-picker-button">Choose image</b>
+      <small class="file-picker-name">No image selected</small>
     </label>
 
     <label>Image URL
