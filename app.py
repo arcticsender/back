@@ -1653,6 +1653,7 @@ def sitemap_xml():
         (f"{BASE_URL}{url_for('register')}", 'weekly', '0.8'),
         (f"{BASE_URL}{url_for('login')}", 'monthly', '0.4'),
         (f"{BASE_URL}{url_for('faq')}", 'weekly', '0.7'),
+        (f"{BASE_URL}{url_for('legal')}", 'monthly', '0.6'),
     ]
     for user in User.query.filter_by(is_suspended=False).order_by(User.created_at.desc()).limit(500).all():
         urls.append((f"{BASE_URL}{url_for('profile', username=user.username)}", 'daily', '0.9'))
@@ -2139,6 +2140,11 @@ def creator_recent_sends(user, limit=30):
 @app.route('/faq')
 def faq():
     return render_template('faq.html')
+
+
+@app.route('/legal')
+def legal():
+    return render_template('legal.html')
 
 @app.route('/@<username>')
 def profile(username):

@@ -29,6 +29,7 @@
     <label>Checkout currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select></label>
     <p class="currency-note muted">Creator balances are credited in USD. <a class="info-link" href="{{ url_for('faq') }}#faq-currency" data-tip="Stripe shows the final payment amount before you pay." aria-label="Learn more about currency">i</a></p>
     <label>Message, optional<textarea name="message" rows="4" maxlength="500" placeholder="Write a nice note..."></textarea></label>
+    <p class="checkout-legal-note muted">By continuing, you agree to the <a href="{{ url_for('legal') }}" target="_blank" rel="noopener">Legal Center</a>, including our Terms, Privacy Policy, Cookie Policy, and Refund Policy.</p>
     <button class="btn full" type="submit">Pay securely</button>
   </form>
 </section>

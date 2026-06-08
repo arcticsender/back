@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Legal Center | {{ site_name }}{% endblock %}
+{% block meta_description %}Read ArcticSender terms, privacy policy, cookie policy, refund policy, creator payout terms, acceptable use rules, and contact information in one clean legal center.{% endblock %}
+{% block content %}
+<section class="section page-head legal-head">
+  <div>
+    <div class="pill">Legal center</div>
+    <h1>Policies built for clear creator gifting.</h1>
+    <p>Terms, privacy, cookies, refunds, payout rules, and platform guidelines in one place.</p>
+  </div>
+</section>
+
+<section class="section legal-layout">
+  <aside class="panel frost-card legal-toc" aria-label="Legal sections">
+    <strong>Jump to</strong>
+    <a href="#terms">Terms of Service</a>
+    <a href="#privacy">Privacy Policy</a>
+    <a href="#cookies">Cookie Policy</a>
+    <a href="#refunds">Refund Policy</a>
+    <a href="#payouts">Creator Payouts</a>
+    <a href="#acceptable-use">Acceptable Use</a>
+    <a href="#contact">Contact</a>
+  </aside>
+
+  <div class="legal-stack">
+    <article class="panel frost-card legal-card" id="terms">
+      <div class="pill">Terms of Service</div>
+      <h2>Using {{ site_name }}</h2>
+      <p>{{ site_name }} lets creators publish wishlist-style pages where supporters can send cash gifts, contribute toward gift goals, and check out securely. By creating an account, using a creator page, adding items to cart, or completing checkout, you agree to use the platform responsibly and follow these policies.</p>
+      <p>Creators are responsible for keeping their account information accurate, using lawful content, and honoring any public promises they make to supporters. Supporters are responsible for entering accurate payment and receipt information before checkout.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="privacy">
+      <div class="pill">Privacy Policy</div>
+      <h2>What information is visible</h2>
+      <p>Creators can see the public sender name and message a supporter chooses to share. Receipt email addresses are kept private and are used for payment receipts, support, fraud prevention, and order-related help.</p>
+      <p>We may store account details, creator profile content, uploaded images, wishlist items, cart and checkout records, contribution records, payout setup status, and basic technical data needed to keep the site secure and working.</p>
+      <p>Payment details are processed by Stripe. {{ site_name }} does not store full card numbers.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="cookies">
+      <div class="pill">Cookie Policy</div>
+      <h2>Cookies and sessions</h2>
+      <p>{{ site_name }} uses cookies and similar browser storage to keep users signed in, keep carts working for non-logged-in supporters, protect forms, remember basic preferences, and improve site reliability.</p>
+      <p>You can block cookies in your browser, but checkout, login, cart, and creator account features may not work correctly without them.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="refunds">
+      <div class="pill">Refund Policy</div>
+      <h2>Refunds and payment issues</h2>
+      <p>Cash gifts and contributions are generally treated as voluntary support for a creator. Refunds are not guaranteed after a successful payment unless required by law, caused by a clear technical error, duplicate charge, unauthorized payment, or another issue approved by {{ site_name }} support.</p>
+      <p>If you need help with a payment, contact support with the receipt email, creator page, payment amount, and approximate payment time.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="payouts">
+      <div class="pill">Creator Payouts</div>
+      <h2>Website balance and cashouts</h2>
+      <p>Paid gifts are credited to the creator’s {{ site_name }} website balance first. Stripe Express is used for bank payout setup and cashouts, not to show creators an instant Stripe dashboard balance.</p>
+      <p>Cashouts may be delayed, reviewed, adjusted, or declined for fraud prevention, chargebacks, policy violations, payment disputes, missing payout requirements, or legal compliance.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="acceptable-use">
+      <div class="pill">Acceptable Use</div>
+      <h2>Platform rules</h2>
+      <p>Do not use {{ site_name }} for scams, illegal goods or services, harassment, impersonation, stolen payment information, misleading creator pages, or content that violates payment processor rules.</p>
+      <p>{{ site_name }} may remove content, pause payouts, suspend accounts, or close accounts when needed to protect creators, supporters, the platform, or payment partners.</p>
+    </article>
+
+    <article class="panel frost-card legal-card" id="contact">
+      <div class="pill">Contact</div>
+      <h2>Support</h2>
+      <p>For legal, privacy, refund, payout, or account questions, contact <a href="mailto:support@arcticsender.com">support@arcticsender.com</a>.</p>
+      <p class="muted tiny-note">Last updated: June 2026. This page is provided as the platform’s public policy summary and may be updated as {{ site_name }} grows.</p>
+    </article>
+  </div>
+</section>
+{% endblock %}
