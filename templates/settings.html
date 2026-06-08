@@ -75,7 +75,8 @@
     <div class="pill">Page privacy</div>
     <h2>Gifters history</h2>
     <p class="muted">Choose whether your page shows recent gift cards. Leaderboard totals still count paid gifts from named supporters.</p>
-    <label class="check clean-toggle-row"><input type="checkbox" name="show_gifters_history" {% if current_user.show_gifters_history %}checked{% endif %}> Show recent gifts on my Gifters page</label>
+    <input type="hidden" name="show_gifters_history" value="0">
+    <label class="check clean-toggle-row"><input type="checkbox" name="show_gifters_history" value="1" {% if current_user.show_gifters_history %}checked{% endif %}> Show recent gifts on my Gifters page</label>
     <button class="btn full">Save privacy settings</button>
   </form>
 

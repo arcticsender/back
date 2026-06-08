@@ -1848,3 +1848,24 @@ body.gift-modal-is-open{overflow:hidden}.gift-title-link{color:inherit}.gift-mod
   .privacy-settings-card{padding:15px!important;border-radius:20px!important;}
   .clean-toggle-row{font-size:.84rem!important;line-height:1.35;align-items:flex-start!important;}
 }
+
+/* Final gifters privacy state */
+.gifters-disabled-card {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: clamp(28px, 5vw, 56px) 18px;
+}
+.gifters-disabled-card h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 4vw, 2.25rem);
+  letter-spacing: -0.03em;
+}
+.gifters-disabled-card p {
+  max-width: 520px;
+  margin: 0;
+}

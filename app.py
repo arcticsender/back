@@ -1997,7 +1997,7 @@ def settings():
     if request.method == 'POST':
         action = request.form.get('action', '').strip()
         if action == 'privacy':
-            user.show_gifters_history = bool(request.form.get('show_gifters_history'))
+            user.show_gifters_history = truthy_setting(request.form.get('show_gifters_history'), False)
             db.session.commit()
             mongo_backup_model(user)
             flash('Privacy settings saved.', 'success')
@@ -2181,6 +2181,22 @@ def creator_leaderboard_rows(user, limit=25):
     return sorted(leaderboard_map.values(), key=lambda r: r['amount_cents'], reverse=True)[:limit]
 
 
+
+def truthy_setting(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+    return bool(value)
+
+
+def gifters_history_enabled(user):
+    return truthy_setting(getattr(user, 'show_gifters_history', True), True)
+
 def creator_recent_sends(user, limit=30):
     # Recent gift cards only show gifts that still exist. If a creator deletes a gift,
     # its historical value remains in the leaderboard totals, but the deleted gift is
@@ -2218,17 +2234,26 @@ def profile(username):
     owns_page = bool(viewer and (viewer.id == user.id or viewer.is_admin))
     item_query = WishlistItem.query.filter_by(creator_id=user.id) if owns_page else WishlistItem.query.filter_by(creator_id=user.id, is_active=True)
     items = gift_sort_query(item_query, user.gift_sort).all()
-    recent_sends = creator_recent_sends(user, 4) if user.show_gifters_history else []
+    show_recent_gifts = gifters_history_enabled(user)
+    recent_sends = creator_recent_sends(user, 4) if show_recent_gifts else []
     named_count = len(creator_leaderboard_rows(user, 1000))
-    return render_template('profile.html', creator=user, items=items, recent_sends=recent_sends, named_count=named_count)
+    return render_template('profile.html', creator=user, items=items, recent_sends=recent_sends, named_count=named_count, show_recent_gifts=show_recent_gifts)
 
 
 @app.route('/@<username>/leaderboard')
 def public_leaderboard(username):
     user = User.query.filter_by(username=username).first_or_404()
-    leaderboard = creator_leaderboard_rows(user, 50)
-    recent_sends = creator_recent_sends(user, 40) if user.show_gifters_history else []
-    return render_template('leaderboard.html', creator=user, leaderboard=leaderboard, recent_sends=recent_sends)
+    show_gifters_history = gifters_history_enabled(user)
+    leaderboard = creator_leaderboard_rows(user, 50) if show_gifters_history else []
+    recent_sends = creator_recent_sends(user, 40) if show_gifters_history else []
+    return render_template(
+        'leaderboard.html',
+        creator=user,
+        leaderboard=leaderboard,
+        recent_sends=recent_sends,
+        show_recent_gifts=show_gifters_history,
+        show_gifters_history=show_gifters_history,
+    )
 
 
 @app.route('/@<username>/gift-sort', methods=['POST'])
