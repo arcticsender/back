@@ -379,3 +379,143 @@ body:before{
   .mobile-balance-pill{max-width:82px!important}
   .mobile-menu-btn{width:34px!important;height:32px!important;min-width:34px!important}
 }
+
+/* Final mobile header polish: visible logo, icon cart, cleaner button sizing */
+@media(max-width:720px){
+  body{padding-top:62px!important}
+  .nav{
+    height:46px!important;
+    top:8px!important;
+    left:8px!important;
+    right:8px!important;
+    padding:6px!important;
+    border-radius:16px!important;
+    gap:6px!important;
+    background:rgba(5,16,29,.92)!important;
+    border:1px solid rgba(174,231,255,.15)!important;
+    box-shadow:0 12px 34px rgba(0,0,0,.26)!important;
+  }
+  .brand{
+    display:flex!important;
+    align-items:center!important;
+    min-width:0!important;
+    flex:1 1 auto!important;
+    max-width:none!important;
+    gap:7px!important;
+    overflow:hidden!important;
+    color:#f3fdff!important;
+  }
+  .brand-logo{
+    display:block!important;
+    width:30px!important;
+    height:30px!important;
+    min-width:30px!important;
+    border-radius:10px!important;
+    object-fit:cover!important;
+    background:linear-gradient(135deg,rgba(168,241,255,.16),rgba(22,107,255,.16))!important;
+    box-shadow:0 0 18px rgba(54,183,255,.25)!important;
+    opacity:1!important;
+    visibility:visible!important;
+  }
+  .brand-word{
+    display:inline-flex!important;
+    align-items:center!important;
+    min-width:0!important;
+    max-width:120px!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+    font-size:.82rem!important;
+    font-weight:950!important;
+    letter-spacing:-.045em!important;
+  }
+  .brand-word span:first-child,.brand-word span:last-child{display:inline!important}
+  .mobile-top-actions{
+    flex:0 0 auto!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:5px!important;
+    margin-left:6px!important;
+  }
+  .mobile-cart-btn,.mobile-balance-pill,.mobile-auth-btn,.mobile-menu-btn{
+    height:32px!important;
+    min-height:32px!important;
+    border-radius:11px!important;
+    border:1px solid rgba(174,231,255,.14)!important;
+    box-shadow:none!important;
+    transform:none!important;
+  }
+  .mobile-cart-btn{
+    width:34px!important;
+    min-width:34px!important;
+    padding:0!important;
+    background:rgba(168,241,255,.075)!important;
+    color:#eaffff!important;
+  }
+  .cart-icon{width:16px;height:16px;display:block;fill:currentColor;opacity:.96}
+  .mobile-cart-btn b{
+    position:absolute!important;
+    right:-4px!important;
+    top:-5px!important;
+    min-width:15px!important;
+    height:15px!important;
+    padding:0 4px!important;
+    border-radius:999px!important;
+    font-size:.56rem!important;
+    line-height:15px!important;
+    background:linear-gradient(135deg,#a8f1ff,#166bff)!important;
+    color:#03101d!important;
+    border:1px solid rgba(2,8,16,.55)!important;
+  }
+  .mobile-cart-btn{position:relative!important}
+  .mobile-balance-pill{
+    max-width:84px!important;
+    padding:0 9px!important;
+    background:rgba(168,241,255,.075)!important;
+    color:#f3fdff!important;
+    font-size:.7rem!important;
+    font-weight:950!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  .mobile-auth-btn{
+    padding:0 10px!important;
+    background:linear-gradient(135deg,#a8f1ff,#36b7ff 52%,#166bff)!important;
+    color:#03101d!important;
+    border:0!important;
+    font-size:.69rem!important;
+    font-weight:950!important;
+    white-space:nowrap!important;
+    box-shadow:0 8px 20px rgba(54,183,255,.18)!important;
+  }
+  .mobile-menu-btn{
+    display:inline-grid!important;
+    width:34px!important;
+    min-width:34px!important;
+    padding:0!important;
+    background:rgba(168,241,255,.075)!important;
+    color:#eaffff!important;
+    place-items:center!important;
+  }
+  .mobile-menu-btn span{
+    width:15px!important;
+    height:2px!important;
+    margin:1.4px 0!important;
+    background:#eaffff!important;
+    border-radius:99px!important;
+  }
+  .mobile-drawer{padding-top:66px!important}
+  .drawer-head{top:11px!important}
+}
+@media(max-width:390px){
+  .nav{height:44px!important;padding:5px!important}
+  .brand-logo{width:28px!important;height:28px!important;min-width:28px!important}
+  .brand-word{max-width:92px!important;font-size:.76rem!important}
+  .mobile-top-actions{gap:4px!important;margin-left:4px!important}
+  .mobile-cart-btn,.mobile-menu-btn{width:31px!important;min-width:31px!important;height:30px!important;min-height:30px!important;border-radius:10px!important}
+  .mobile-auth-btn{height:30px!important;min-height:30px!important;padding:0 8px!important;font-size:.65rem!important;border-radius:10px!important}
+  .mobile-balance-pill{height:30px!important;min-height:30px!important;max-width:72px!important;padding:0 7px!important;font-size:.64rem!important;border-radius:10px!important}
+  .cart-icon{width:15px!important;height:15px!important}
+}
