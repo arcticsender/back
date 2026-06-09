@@ -32,12 +32,7 @@
           <b>Payout status <a class="info-link" href="{{ url_for('faq') }}#faq-cashouts" data-tip="Stripe securely collects bank details for cashouts. Supporter payments stay in your ArcticSender balance until you cash out." aria-label="Learn more about cashouts">i</a></b>
           <span>{{ stripe_payout_status_label(current_user) }}</span>
         </div>
-        <div class="payout-action-stack">
-          <a class="btn payout-connect-btn" href="{{ url_for('stripe_connect') }}">{% if current_user.stripe_account_id %}Update payout setup{% else %}Connect Stripe{% endif %}</a>
-          {% if current_user.stripe_account_id %}
-            <a class="btn ghost payout-manage-btn" href="{{ url_for('stripe_express_dashboard') }}">Manage payout account</a>
-          {% endif %}
-        </div>
+        <a class="btn payout-connect-btn" href="{{ url_for('stripe_connect') }}">Connect Stripe</a>
       </div>
 
       <div class="payout-mini-grid">
