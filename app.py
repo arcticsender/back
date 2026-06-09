@@ -2642,8 +2642,27 @@ def stripe_connect_refresh():
 @app.route('/stripe/connect/dashboard')
 @login_required
 def stripe_express_dashboard():
-    flash('Stripe is used for payout setup only. Manage your ArcticSender balance and cashouts from Settings.', 'info')
-    return redirect(url_for('settings'))
+    """Open the creator's Stripe Express payout account.
+
+    This is intentionally labeled as payout-account management in the UI so
+    creators do not confuse Stripe's payout/bank settings with their
+    ArcticSender website balance.
+    """
+    user = current_user()
+    if not user.stripe_account_id:
+        flash('Connect Stripe first to manage your payout account.', 'warning')
+        return redirect(url_for('settings'))
+
+    if not stripe or not STRIPE_SECRET_KEY:
+        flash('Stripe is not configured yet. Add your Stripe secret key first.', 'danger')
+        return redirect(url_for('settings'))
+
+    try:
+        login_link = stripe.Account.create_login_link(user.stripe_account_id)
+        return redirect(login_link.url)
+    except Exception as exc:
+        flash('Could not open payout account management: ' + stripe_exception_message(exc), 'danger')
+        return redirect(url_for('settings'))
 
 
 @app.route('/stripe/connect/reset', methods=['POST'])
