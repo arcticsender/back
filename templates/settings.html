@@ -69,6 +69,27 @@
   </div>
 
 
+  <form class="panel form wide frost-card personalization-card" method="post">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="preferences">
+    <div class="pill">Personalization</div>
+    <h2>Make ArcticSender yours</h2>
+    <p class="muted">Choose your creator-page accent, dashboard density, and in-site notification preference.</p>
+    <label>Creator page accent
+      <select name="profile_accent">
+        <option value="ice" {% if current_user.profile_accent == 'ice' %}selected{% endif %}>Arctic ice</option>
+        <option value="violet" {% if current_user.profile_accent == 'violet' %}selected{% endif %}>Violet</option>
+        <option value="blue" {% if current_user.profile_accent == 'blue' %}selected{% endif %}>Ocean blue</option>
+        <option value="rose" {% if current_user.profile_accent == 'rose' %}selected{% endif %}>Rose</option>
+      </select>
+    </label>
+    <input type="hidden" name="compact_dashboard" value="0">
+    <label class="check clean-toggle-row"><input type="checkbox" name="compact_dashboard" value="1" {% if current_user.compact_dashboard %}checked{% endif %}> Use compact dashboard spacing</label>
+    <input type="hidden" name="notifications_enabled" value="0">
+    <label class="check clean-toggle-row"><input type="checkbox" name="notifications_enabled" value="1" {% if current_user.notifications_enabled %}checked{% endif %}> Receive in-site notifications</label>
+    <button class="btn full">Save preferences</button>
+  </form>
+
   <form class="panel form wide frost-card privacy-settings-card" method="post">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="privacy">

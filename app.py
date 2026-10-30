@@ -250,6 +250,9 @@ class User(db.Model):
     admin_note = db.Column(db.Text, default='')
     gift_sort = db.Column(db.String(20), nullable=False, default='recent')
     show_gifters_history = db.Column(db.Boolean, nullable=False, default=True)
+    profile_accent = db.Column(db.String(20), nullable=False, default='ice')
+    compact_dashboard = db.Column(db.Boolean, nullable=False, default=False)
+    notifications_enabled = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     wishlist_items = db.relationship('WishlistItem', backref='creator', lazy=True, cascade='all, delete-orphan')
@@ -280,6 +283,20 @@ class SiteSetting(db.Model):
     key = db.Column(db.String(80), unique=True, nullable=False, index=True)
     value = db.Column(db.Text, nullable=False, default='')
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None))
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    title = db.Column(db.String(120), nullable=False)
+    body = db.Column(db.String(500), nullable=False, default='')
+    url = db.Column(db.String(500), nullable=False, default='')
+    category = db.Column(db.String(30), nullable=False, default='account')
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), index=True)
+
+    user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic', cascade='all, delete-orphan'))
+
 
 
 class AdminAuditLog(db.Model):
@@ -913,6 +930,7 @@ def apply_security_headers(response):
             response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     if request.endpoint == 'static':
         response.headers.setdefault('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400')
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     elif request.method in ('POST', 'PUT', 'PATCH', 'DELETE') or current_user() is not None:
         response.headers.setdefault('Cache-Control', 'private, no-store')
     return response
@@ -969,6 +987,8 @@ def inject_globals():
         'csrf_token': csrf_token,
         'default_gift_image_url': default_gift_image_url,
         'sender_initial': sender_initial,
+        'public_asset_url': public_asset_url,
+        'notification_unread_count': (Notification.query.filter_by(user_id=current_user().id, is_read=False).count() if current_user() else 0),
     }
 
 
@@ -1590,7 +1610,7 @@ def mongo_restore_uploads():
 
 
 def mongo_models():
-    return [User, WishlistItem, CheckoutOrder, Contribution, CashoutRequest, PasswordResetToken]
+    return [User, WishlistItem, CheckoutOrder, Contribution, CashoutRequest, PasswordResetToken, Notification]
 
 
 def parse_mongo_value(column, value):
@@ -1700,6 +1720,23 @@ def mongo_restore_all_if_empty():
         app.logger.info('Restored %s records from MongoDB into local SQLite.', total)
     return bool(total)
 
+def create_notification(user_id, title, body='', url='', category='account'):
+    """Persist an in-site notification without making payment completion depend on it."""
+    try:
+        recipient = db.session.get(User, user_id)
+        if recipient and not recipient.notifications_enabled:
+            return None
+        notification = Notification(user_id=user_id, title=str(title)[:120], body=str(body)[:500],
+                                    url=str(url)[:500], category=str(category)[:30])
+        db.session.add(notification)
+        db.session.flush()
+        mongo_backup_model(notification)
+        return notification
+    except Exception:
+        app.logger.exception('Could not create notification for user %s', user_id)
+        return None
+
+
 def credit_contribution(contribution, commit=True, send_email=True):
     if contribution.status == 'paid':
         return
@@ -1720,6 +1757,7 @@ def credit_contribution(contribution, commit=True, send_email=True):
             contribution.item.funded_cents = min(max_funded, contribution.item.funded_cents + contribution.amount_cents)
         else:
             contribution.item.funded_cents = min(contribution.item.price_cents, contribution.item.funded_cents + contribution.amount_cents)
+    create_notification(creator.id, 'You received a gift', f'{money(contribution.amount_cents)} was added to your ArcticSender balance.', url_for('dashboard'), 'gift')
     if commit:
         db.session.commit()
     mongo_backup_model(contribution)
@@ -2192,6 +2230,48 @@ def logout():
     return redirect(url_for('home'))
 
 
+@app.route('/notifications')
+@login_required
+def notifications():
+    user = current_user()
+    rows = Notification.query.filter_by(user_id=user.id).order_by(Notification.created_at.desc()).limit(100).all()
+    return render_template('notifications.html', notifications=rows)
+
+
+@app.route('/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def notification_read(notification_id):
+    row = Notification.query.filter_by(id=notification_id, user_id=current_user().id).first_or_404()
+    row.is_read = True
+    db.session.commit()
+    mongo_backup_model(row)
+    if row.url.startswith('/') and not row.url.startswith('//'):
+        return redirect(row.url)
+    return redirect(url_for('notifications'))
+
+
+@app.route('/notifications/read-all', methods=['POST'])
+@login_required
+def notifications_read_all():
+    unread = Notification.query.filter_by(user_id=current_user().id, is_read=False).all()
+    for row in unread:
+        row.is_read = True
+        mongo_backup_model(row)
+    db.session.commit()
+    flash('All notifications marked as read.', 'success')
+    return redirect(url_for('notifications'))
+
+
+@app.route('/notifications/<int:notification_id>/dismiss', methods=['POST'])
+@login_required
+def notification_dismiss(notification_id):
+    row = Notification.query.filter_by(id=notification_id, user_id=current_user().id).first_or_404()
+    db.session.delete(row)
+    db.session.commit()
+    flash('Notification dismissed.', 'info')
+    return redirect(url_for('notifications'))
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -2236,6 +2316,16 @@ def settings():
     user = current_user()
     if request.method == 'POST':
         action = request.form.get('action', '').strip()
+        if action == 'preferences':
+            accents = {'ice', 'violet', 'blue', 'rose'}
+            accent = (request.form.get('profile_accent') or 'ice').strip().lower()
+            user.profile_accent = accent if accent in accents else 'ice'
+            user.compact_dashboard = '1' in request.form.getlist('compact_dashboard')
+            user.notifications_enabled = '1' in request.form.getlist('notifications_enabled')
+            db.session.commit()
+            mongo_backup_model(user)
+            flash('Your preferences have been saved.', 'success')
+            return redirect(url_for('settings'))
         if action == 'privacy':
             # Checkbox forms submit a hidden "0" plus an optional checked "1".
             # Use getlist() so turning the setting back on works reliably.
@@ -3240,6 +3330,9 @@ def migrate_sqlite_columns():
         try:
             with db.engine.begin() as conn:
                 conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20) NOT NULL DEFAULT 'moderator'")
+                conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS profile_accent VARCHAR(20) NOT NULL DEFAULT 'ice'")
+                conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS compact_dashboard BOOLEAN NOT NULL DEFAULT FALSE")
+                conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE")
         except Exception:
             app.logger.exception('Could not ensure admin_role column on the active database')
         return
@@ -3272,6 +3365,9 @@ def migrate_sqlite_columns():
                 'admin_note': "ALTER TABLE user ADD COLUMN admin_note TEXT DEFAULT ''",
                 'gift_sort': "ALTER TABLE user ADD COLUMN gift_sort VARCHAR(20) DEFAULT 'recent' NOT NULL",
                 'show_gifters_history': "ALTER TABLE user ADD COLUMN show_gifters_history BOOLEAN DEFAULT 1 NOT NULL",
+                'profile_accent': "ALTER TABLE user ADD COLUMN profile_accent VARCHAR(20) DEFAULT 'ice' NOT NULL",
+                'compact_dashboard': "ALTER TABLE user ADD COLUMN compact_dashboard BOOLEAN DEFAULT 0 NOT NULL",
+                'notifications_enabled': "ALTER TABLE user ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1 NOT NULL",
             }
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:

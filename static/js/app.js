@@ -13,13 +13,15 @@
   }
 
 
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.querySelectorAll('.flash').forEach((flash) => {
     const close = () => {
       flash.classList.add('is-hiding');
-      setTimeout(() => flash.remove(), 180);
+      if (prefersReducedMotion) flash.remove();
+      else setTimeout(() => flash.remove(), 180);
     };
     flash.querySelector('.flash-close')?.addEventListener('click', close);
-    setTimeout(close, 2400);
+    if (!prefersReducedMotion) setTimeout(close, 4200);
   });
 
   document.addEventListener('click', (event) => {

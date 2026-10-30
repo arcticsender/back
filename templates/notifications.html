@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Notifications | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section notifications-page">
+  <div class="notifications-head"><div><span class="pill">Your activity</span><h1>Notifications</h1><p class="muted">Gift activity and important account updates, all in one place.</p></div>
+  <form method="post" action="{{ url_for('notifications_read_all') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn ghost" type="submit">Mark all as read</button></form></div>
+  <div class="notification-list frost-card">
+    {% for note in notifications %}
+      <article class="notification-row {% if not note.is_read %}unread{% endif %}">
+        <span class="notification-symbol" aria-hidden="true">{% if note.category == 'gift' %}🎁{% else %}✦{% endif %}</span>
+        <div class="notification-copy"><div class="notification-title-line"><strong>{{ note.title }}</strong>{% if not note.is_read %}<span class="unread-dot" aria-label="Unread"></span>{% endif %}</div><p>{{ note.body }}</p><time datetime="{{ note.created_at.isoformat() }}">{{ note.created_at.strftime('%b %d, %Y · %I:%M %p') }}</time></div>
+        <div class="notification-actions">{% if not note.is_read %}<form method="post" action="{{ url_for('notification_read', notification_id=note.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn ghost" type="submit">Open</button></form>{% elif note.url %}<a class="btn ghost" href="{{ note.url }}">Open</a>{% endif %}<form method="post" action="{{ url_for('notification_dismiss', notification_id=note.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="notification-dismiss" type="submit" aria-label="Dismiss notification">×</button></form></div>
+      </article>
+    {% else %}<div class="notification-empty"><span>✦</span><h2>You're all caught up</h2><p class="muted">New gift activity and account updates will show up here.</p></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

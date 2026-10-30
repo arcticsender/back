@@ -14,7 +14,7 @@
       {% else %}
         <span class="item-image-placeholder">🎁</span>
       {% endif %}
-      <span class="gift-chip">{{ item.type_label }}</span>
+      {% if item.gift_type == 'goal' %}<span class="gift-chip">{{ item.type_label }}</span>{% endif %}
     </div>
     <form class="gift-detail-body" method="post">
       <div class="gift-detail-top">
