@@ -6,7 +6,7 @@
     <div class="auth-logo-wrap"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""></div>
     <div class="pill">Secure verification</div>
     <h1>{{ title }}</h1>
-    <p class="muted">We sent a 6-digit code to <b>{{ email }}</b>. Enter it below to continue.</p>
+    <p class="muted">We sent a 6-digit code to <b>{{ email }}</b>. Enter it below to continue. If you selected “Remember this device”, this browser will be trusted for future sign-ins.</p>
     <label>Verification code
       <input class="otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
     </label>

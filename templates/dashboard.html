@@ -14,6 +14,22 @@
   </div>
 </section>
 
+<section class="section creator-launch-section">
+  {% set profile_ready = current_user.avatar_url and current_user.bio %}
+  {% set has_gift = items|length > 0 %}
+  {% set payouts_ready = current_user.stripe_account_id and current_user.stripe_payouts_enabled %}
+  {% set launch_steps = (1 if profile_ready else 0) + (1 if has_gift else 0) + (1 if payouts_ready else 0) %}
+  <div class="creator-launch-card panel">
+    <div class="creator-launch-copy"><div class="pill">Your creator launch plan</div><h2>Make your page ready to share.</h2><p class="muted">A few quick steps make it easier for supporters to understand your page and send a gift.</p><div class="launch-progress"><span style="width:{{ (launch_steps / 3 * 100)|round }}%"></span></div><small>{{ launch_steps }} of 3 essentials complete</small></div>
+    <div class="creator-launch-steps">
+      <a class="launch-step {% if profile_ready %}is-done{% endif %}" href="{{ url_for('profile_settings') }}"><span>{% if profile_ready %}✓{% else %}1{% endif %}</span><div><b>Personalize your page</b><small>Profile photo and a short bio</small></div><i>›</i></a>
+      <a class="launch-step {% if has_gift %}is-done{% endif %}" href="{{ url_for('new_item') }}"><span>{% if has_gift %}✓{% else %}2{% endif %}</span><div><b>Add your first gift</b><small>Give supporters something to help with</small></div><i>›</i></a>
+      <a class="launch-step {% if payouts_ready %}is-done{% endif %}" href="{{ url_for('settings') }}"><span>{% if payouts_ready %}✓{% else %}3{% endif %}</span><div><b>Set up payouts</b><small>Be ready to withdraw your balance</small></div><i>›</i></a>
+      <button class="btn full launch-share" type="button" data-copy-text="{{ request.url_root.rstrip('/') }}{{ url_for('profile', username=current_user.username) }}">Copy your page link</button>
+    </div>
+  </div>
+</section>
+
 <section class="section split-cards">
   <div class="feature-card balance">
     <h3>{{ money(current_user.balance_cents) }}</h3>

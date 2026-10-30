@@ -52,8 +52,11 @@
         <option value="{{ theme }}" {% if theme_preference == theme %}selected{% endif %}>{{ theme|title }}</option>
         {% endfor %}
       </select>
-      <button class="btn">Save theme</button>
+      <label class="admin-security-toggle"><input type="checkbox" name="login_otp_required" {% if otp_required %}checked{% endif %}> Require email verification on new devices</label>
+      <label>Trusted device duration<select name="trusted_device_days"><option value="7" {% if trusted_days == 7 %}selected{% endif %}>7 days</option><option value="14" {% if trusted_days == 14 %}selected{% endif %}>14 days</option><option value="30" {% if trusted_days == 30 %}selected{% endif %}>30 days</option><option value="60" {% if trusted_days == 60 %}selected{% endif %}>60 days</option><option value="90" {% if trusted_days == 90 %}selected{% endif %}>90 days</option></select></label>
+      <button class="btn">Save settings</button>
     </form>
+    <p class="muted admin-security-note">{{ trusted_device_count }} active trusted browsers. Trusted devices are protected by a random secure cookie and browser fingerprint; IP is recorded for review but is not used as the sole trust factor.</p>
   </div>
 </section>
 {% endif %}

@@ -203,3 +203,19 @@
     });
   });
 })();
+
+
+// Copy creator page links and other small share actions.
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-copy-text]');
+  if (!button) return;
+  const value = button.getAttribute('data-copy-text') || '';
+  try {
+    await navigator.clipboard.writeText(value);
+    const previous = button.textContent;
+    button.textContent = 'Link copied';
+    window.setTimeout(() => { button.textContent = previous; }, 1800);
+  } catch (_) {
+    window.prompt('Copy your creator page link:', value);
+  }
+});

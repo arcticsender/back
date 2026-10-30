@@ -2,6 +2,7 @@ import os
 import io
 import re
 import secrets
+import hashlib
 import threading
 import time
 import json
@@ -260,6 +261,18 @@ class User(db.Model):
     @property
     def lifetime_earned(self):
         return self.lifetime_earned_cents / 100
+
+
+class TrustedDevice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_agent_hash = db.Column(db.String(64), nullable=False, default='')
+    label = db.Column(db.String(120), nullable=False, default='Trusted browser')
+    last_ip = db.Column(db.String(64), nullable=False, default='')
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    last_used_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    expires_at = db.Column(db.DateTime, nullable=False)
 
 
 class SiteSetting(db.Model):
@@ -1963,6 +1976,77 @@ def verify_email():
     return render_template('verify_otp.html', purpose='signup', email=user.email, title='Verify your email')
 
 
+TRUSTED_DEVICE_COOKIE = 'arctic_trusted_device'
+
+
+def _sha256(value):
+    return hashlib.sha256((value or '').encode('utf-8')).hexdigest()
+
+
+def login_otp_required():
+    setting = SiteSetting.query.filter_by(key='login_otp_required').first()
+    if setting is None:
+        return EMAIL_OTP_ENABLED
+    return setting.value.lower() == 'true'
+
+
+def trusted_device_days():
+    setting = SiteSetting.query.filter_by(key='trusted_device_days').first()
+    try:
+        return min(90, max(1, int(setting.value))) if setting else 30
+    except Exception:
+        return 30
+
+
+def trusted_device_valid(user):
+    raw = request.cookies.get(TRUSTED_DEVICE_COOKIE, '')
+    if not raw or len(raw) < 32:
+        return False
+    device = TrustedDevice.query.filter_by(user_id=user.id, token_hash=_sha256(raw)).first()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    if not device or device.expires_at <= now:
+        return False
+    if device.user_agent_hash != _sha256(request.headers.get('User-Agent', '')[:500]):
+        return False
+    device.last_used_at = now
+    device.last_ip = (request.remote_addr or '')[:64]
+    db.session.commit()
+    return True
+
+
+def attach_trusted_device(response, user):
+    raw = secrets.token_urlsafe(48)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    # Limit each account to 10 active trusted browsers.
+    old = TrustedDevice.query.filter_by(user_id=user.id).order_by(TrustedDevice.last_used_at.asc()).all()
+    while len(old) >= 10:
+        db.session.delete(old.pop(0))
+    device = TrustedDevice(
+        user_id=user.id, token_hash=_sha256(raw),
+        user_agent_hash=_sha256(request.headers.get('User-Agent', '')[:500]),
+        label=(request.user_agent.browser or 'Browser').title() + ' on ' + (request.user_agent.platform or 'device').title(),
+        last_ip=(request.remote_addr or '')[:64], expires_at=now + timedelta(days=trusted_device_days())
+    )
+    db.session.add(device)
+    db.session.commit()
+    response.set_cookie(TRUSTED_DEVICE_COOKIE, raw, max_age=trusted_device_days()*86400,
+        httponly=True, secure=app.config.get('SESSION_COOKIE_SECURE', False), samesite='Lax', path='/')
+    return response
+
+
+def complete_login(user, remember_device=False):
+    clear_session_keep_cart()
+    session.permanent = True
+    session['user_id'] = user.id
+    user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
+    db.session.commit()
+    mongo_backup_model(user)
+    response = redirect(url_for('dashboard'))
+    if remember_device:
+        attach_trusted_device(response, user)
+    return response
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -1983,26 +2067,27 @@ def login():
         if user.is_suspended:
             flash('This account is suspended. Contact support@arcticsender.com for help.', 'danger')
             return redirect(url_for('login'))
-        if EMAIL_OTP_ENABLED:
+        remember = request.form.get('remember_device') == 'on'
+        session['remember_device_after_otp'] = bool(remember)
+        if login_otp_required():
             purpose = 'login' if user.email_verified else 'signup'
-            code = generate_user_otp(user, purpose)
-            sent = send_otp_email(user, code, purpose)
             if purpose == 'signup':
+                code = generate_user_otp(user, purpose)
+                send_otp_email(user, code, purpose)
                 session['pending_signup_user_id'] = user.id
                 flash('Verify your email before signing in. We sent you a new code.', 'warning')
                 return redirect(url_for('verify_email'))
-            session['pending_login_user_id'] = user.id
-            if not sent and MAIL_REQUIRED_FOR_AUTH:
-                flash('Login code could not be sent. Check Resend settings or contact support.', 'danger')
-                return redirect(url_for('login'))
-            flash('We sent a 6-digit login code to your email.', 'success')
-            return redirect(url_for('verify_login'))
-        session['user_id'] = user.id
-        user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
-        db.session.commit()
-        mongo_backup_model(user)
+            if not trusted_device_valid(user):
+                code = generate_user_otp(user, purpose)
+                sent = send_otp_email(user, code, purpose)
+                session['pending_login_user_id'] = user.id
+                if not sent and MAIL_REQUIRED_FOR_AUTH:
+                    flash('Login code could not be sent. Check Resend settings or contact support.', 'danger')
+                    return redirect(url_for('login'))
+                flash('We sent a 6-digit login code to your email.', 'success')
+                return redirect(url_for('verify_login'))
         flash('Welcome back.', 'success')
-        return redirect(url_for('dashboard'))
+        return complete_login(user, remember_device=remember)
     return render_template('login.html')
 
 
@@ -2074,14 +2159,9 @@ def verify_login():
         if not ok:
             flash(error, 'danger')
             return redirect(url_for('verify_login'))
-        clear_session_keep_cart()
-        session.permanent = True
-        session['user_id'] = user.id
-        user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
-        db.session.commit()
-        mongo_backup_model(user)
+        remember = bool(session.pop('remember_device_after_otp', False))
         flash('Welcome back.', 'success')
-        return redirect(url_for('dashboard'))
+        return complete_login(user, remember_device=remember)
     return render_template('verify_otp.html', purpose='login', email=user.email, title='Enter your login code')
 
 
@@ -2881,7 +2961,7 @@ def admin():
         'suspended': User.query.filter_by(is_suspended=True).count(),
     }
     logs = AdminAuditLog.query.order_by(AdminAuditLog.created_at.desc()).limit(30).all()
-    return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals, admin_logs=logs, admin_role=(current_user().admin_role or 'moderator'), theme_preference=(SiteSetting.query.filter_by(key='site_theme').first().value if SiteSetting.query.filter_by(key='site_theme').first() else os.getenv('SITE_THEME', 'auto')))
+    return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals, admin_logs=logs, admin_role=(current_user().admin_role or 'moderator'), theme_preference=(SiteSetting.query.filter_by(key='site_theme').first().value if SiteSetting.query.filter_by(key='site_theme').first() else os.getenv('SITE_THEME', 'auto')), trusted_device_count=TrustedDevice.query.filter(TrustedDevice.expires_at > datetime.now(UTC).replace(tzinfo=None)).count(), otp_required=login_otp_required(), trusted_days=trusted_device_days())
 
 
 @app.route('/admin/user/<int:user_id>')
@@ -2902,7 +2982,7 @@ def admin_user_action(user_id):
     admin_user = current_user()
     user = db.session.get(User, user_id) or abort(404)
     action = request.form.get('action', '')
-    allowed_actions = {'suspend', 'unsuspend', 'verify_email', 'save_note', 'resend_welcome'}
+    allowed_actions = {'suspend', 'unsuspend', 'verify_email', 'save_note', 'resend_welcome', 'revoke_devices'}
     if admin_user.admin_role == 'moderator' and action not in allowed_actions:
         abort(403)
     if action in {'make_admin', 'remove_admin', 'set_admin_role'}:
@@ -2969,6 +3049,10 @@ def admin_user_action(user_id):
             flash('Temporary password generated and emailed to the user. It was not shown on-screen for security.', 'warning')
         else:
             flash('Temporary password was generated, but the email failed. Fix Resend and use reset again.', 'danger')
+    elif action == 'revoke_devices':
+        count = TrustedDevice.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        write_admin_audit('user.revoke_devices', f'@{user.username} (#{user.id})', f'Revoked {count} trusted devices')
+        flash(f'Revoked {count} trusted device(s). They will need email verification next time.', 'success')
     elif action == 'resend_welcome':
         if send_welcome_email(user):
             flash('Welcome/setup email sent.', 'success')
@@ -2997,9 +3081,20 @@ def admin_save_settings():
         db.session.add(setting)
     else:
         setting.value = theme
-    write_admin_audit('settings.site_theme', 'Site appearance', f'Site theme changed to {theme}')
+    otp_required = 'true' if request.form.get('login_otp_required') == 'on' else 'false'
+    try:
+        days = min(90, max(1, int(request.form.get('trusted_device_days', '30'))))
+    except ValueError:
+        abort(400)
+    for key, value in [('site_theme', theme), ('login_otp_required', otp_required), ('trusted_device_days', str(days))]:
+        setting = SiteSetting.query.filter_by(key=key).first()
+        if not setting:
+            db.session.add(SiteSetting(key=key, value=value))
+        else:
+            setting.value = value
+    write_admin_audit('settings.security', 'Login security', f'Login email verification: {otp_required}; trusted devices: {days} days')
     db.session.commit()
-    flash('Site appearance saved.', 'success')
+    flash('Site and security settings saved.', 'success')
     return redirect(url_for('admin'))
 
 

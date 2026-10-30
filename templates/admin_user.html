@@ -45,6 +45,7 @@
         {% if managed_user.is_admin %}<button class="ghost" name="action" value="remove_admin">Remove admin access</button>{% else %}<button class="ghost" name="action" value="make_admin">Grant moderator access</button>{% endif %}
       {% endif %}
       <button class="ghost" name="action" value="resend_welcome">Send welcome email</button>
+      <button class="ghost danger" name="action" value="revoke_devices" onclick="return confirm('Revoke all trusted devices for this user?')">Revoke trusted devices</button>
       {% if current_user.admin_role in ['owner', 'admin'] %}<button class="ghost" name="action" value="reset_password" onclick="return confirm('Reset this user password and email a temporary password?')">Reset password</button>{% endif %}
     </div>
     {% if current_user.admin_role == 'owner' %}
