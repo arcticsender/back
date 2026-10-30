@@ -1,7 +1,7 @@
 <div class="creator-hero creator-hero-v3 frost-card">
-  <div class="profile-banner creator-banner creator-banner-v3" {% if creator.banner_url %}style="background-image:url('{{ creator.banner_url }}')"{% endif %}></div>
+  <div class="profile-banner creator-banner creator-banner-v3" {% if creator.banner_url %}style="background-image:url('{{ image_src(creator.banner_url) }}')"{% endif %}></div>
   <div class="creator-info creator-info-v3">
-    <div class="avatar big creator-avatar-v3{% if creator.avatar_url %} has-image{% endif %}">{% if creator.avatar_url %}<img src="{{ creator.avatar_url }}" alt="{{ creator.display_name }} profile photo" loading="lazy">{% else %}{{ creator.display_name[:2]|upper }}{% endif %}</div>
+    <div class="avatar big creator-avatar-v3{% if creator.avatar_url %} has-image{% endif %}">{% if creator.avatar_url %}<img src="{{ image_src(creator.avatar_url) }}" alt="{{ creator.display_name }} profile photo" loading="lazy">{% else %}{{ creator.display_name[:2]|upper }}{% endif %}</div>
     <div class="creator-copy creator-copy-v3">
       <span class="pill">@{{ creator.username }}</span>
       <h1>{{ creator.display_name }}</h1>

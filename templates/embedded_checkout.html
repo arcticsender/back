@@ -16,7 +16,7 @@
       {% for contribution in contributions %}
         {% set gift = contribution.item %}
         <div class="checkout-item-mini">
-          <img src="{{ gift.image_url if gift and gift.image_url else default_gift_image_url() }}" alt="{{ gift.title if gift else 'Gift' }} image" loading="lazy">
+          <img src="{{ image_src(gift.image_url) if gift and gift.image_url else default_gift_image_url() }}" alt="{{ gift.title if gift else 'Gift' }} image" loading="lazy">
           <div>
             <b>{{ gift.title if gift else 'Custom gift' }}</b>
             <span>{{ contribution.supporter_name or 'Anonymous' }}</span>

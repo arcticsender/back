@@ -20,7 +20,7 @@
     {% for entry in entries %}
       <article class="clean-cart-row cart-product-row">
         <div class="cart-product-img">
-          <img src="{{ entry.image_url or default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
+          <img src="{{ image_src(entry.image_url) if entry.image_url else default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
         </div>
         <div class="cart-item-copy">
           <b>{{ entry.title }}</b>

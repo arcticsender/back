@@ -2,7 +2,7 @@
 {% block title %}{{ item.title }} for {{ item.creator.display_name }} | {{ site_name }}{% endblock %}
 {% block meta_description %}Support {{ item.creator.display_name }} by adding {{ item.title }} to your {{ site_name }} cart. Clean cash gifting, private checkout, and creator-friendly wishlist support.{% endblock %}
 {% block og_type %}product{% endblock %}
-{% block og_image %}{% if item.image_url %}{{ item.image_url }}{% elif item.creator.banner_url %}{{ item.creator.banner_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
+{% block og_image %}{% if item.image_url %}{{ image_src(item.image_url) }}{% elif item.creator.banner_url %}{{ item.creator.banner_url }}{% else %}{{ url_for('static', filename='img/logo-banner.png', _external=True) }}{% endif %}{% endblock %}
 {% block og_image_alt %}{{ item.title }} cash gift for {{ item.creator.display_name }}{% endblock %}
 {% block content %}
 {% set is_owner_view = current_user and current_user.id == item.creator.id %}
@@ -10,7 +10,7 @@
   <div class="gift-detail-card frost-card">
     <div class="gift-detail-media">
       {% if item.image_url %}
-        <img src="{{ item.image_url }}" alt="{{ item.title }} gift image" loading="lazy">
+        <img src="{{ image_src(item.image_url) }}" alt="{{ item.title }} gift image" loading="lazy">
       {% else %}
         <span class="item-image-placeholder">🎁</span>
       {% endif %}

@@ -42,7 +42,7 @@
 
     {% if item and item.image_url %}
       <div class="gift-image-preview">
-        <img src="{{ item.image_url }}" alt="Current gift image">
+        <img src="{{ image_src(item.image_url) }}" alt="Current gift image">
       </div>
       <label class="check"><input type="checkbox" name="remove_image"> Remove current image</label>
     {% endif %}
@@ -55,7 +55,7 @@
     </label>
 
     <label>Image URL
-      <input name="image_url" value="{% if item and item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ item.image_url }}{% endif %}" placeholder="Optional external image URL. Uploaded images are recommended.">
+      <input name="image_url" value="{% if item and item.image_url and not item.image_url.startswith('/static/img/uploads/') %}{{ image_src(item.image_url) }}{% endif %}" placeholder="Optional external image URL. Uploaded images are recommended.">
     </label>
 
     {% if item %}

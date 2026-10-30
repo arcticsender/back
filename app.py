@@ -1,4 +1,5 @@
 import os
+import io
 import re
 import secrets
 import threading
@@ -30,7 +31,7 @@ try:
 except ImportError:
     certifi = None
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify, Response, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -1024,7 +1025,48 @@ IMAGE_UPLOAD_SPECS = {
 
 
 def is_local_upload(url):
-    return bool(url and url.startswith('/static/img/uploads/'))
+    return bool(url and (url.startswith('/static/img/uploads/') or url.startswith('/media/uploads/')))
+
+
+def image_src(url):
+    """Normalize legacy upload paths to a public route backed by local disk or MongoDB."""
+    if not url:
+        return ''
+    value = str(url).strip()
+    if value.startswith(('http://', 'https://')):
+        # Convert old absolute static upload URLs to the durable media endpoint.
+        marker = '/static/img/uploads/'
+        if marker in value:
+            return value.split(marker, 1)[0] + '/media/uploads/' + value.split(marker, 1)[1]
+        return value
+    if value.startswith('/static/img/uploads/'):
+        return '/media/uploads/' + value.rsplit('/', 1)[-1]
+    return value
+
+
+@app.route('/media/uploads/<path:filename>')
+def uploaded_media(filename):
+    """Serve creator uploads from disk, falling back to the Mongo backup on ephemeral hosts."""
+    safe_name = secure_filename(os.path.basename(filename))
+    if not safe_name or safe_name != filename:
+        abort(404)
+    local_path = os.path.join(app.config['UPLOAD_FOLDER'], safe_name)
+    if os.path.isfile(local_path):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], safe_name, conditional=True, max_age=86400)
+    database = mongo_database()
+    if database is not None:
+        try:
+            doc = database['uploaded_files'].find_one({'filename': safe_name}, {'data': 1, 'content_type': 1})
+            if doc and doc.get('data') is not None:
+                response = send_file(io.BytesIO(bytes(doc['data'])), mimetype=doc.get('content_type') or 'image/webp', max_age=86400, download_name=safe_name)
+                response.headers['Cache-Control'] = 'public, max-age=86400, stale-while-revalidate=604800'
+                return response
+        except Exception as exc:
+            app.logger.warning('Could not load upload %s from MongoDB: %s', safe_name, exc)
+    abort(404)
+
+
+app.jinja_env.globals['image_src'] = image_src
 
 
 def delete_local_upload(url):
@@ -1095,7 +1137,7 @@ def save_upload(file, image_kind='generic'):
 
         image.save(path, 'WEBP', quality=spec['quality'], method=6, optimize=True)
         mongo_backup_upload_file(path)
-        return url_for('static', filename=f'img/uploads/{filename}')
+        return url_for('uploaded_media', filename=filename)
     except Exception as exc:
         app.logger.warning('Image processing failed: %s', exc)
         flash('That image could not be processed. Try a normal PNG, JPG, JPEG, or WEBP image.', 'danger')
@@ -1116,7 +1158,7 @@ def email_config_status():
         'enabled': not missing,
         'missing': missing,
         'provider': 'Resend',
-        'logo_url': EMAIL_LOGO_URL or email_static_image('logo-horizontal.png'),
+        'logo_url': email_static_image('logo-horizontal.png'),
         'banner_url': email_static_image('logo-banner.png'),
         'api_url': RESEND_API_URL,
         'from': MAIL_FROM,
@@ -1132,7 +1174,12 @@ def public_asset_url(url):
         return ''
     url = str(url).strip()
     if url.startswith(('http://', 'https://')):
+        marker = '/static/img/uploads/'
+        if marker in url:
+            url = url.split(marker, 1)[0] + '/media/uploads/' + url.split(marker, 1)[1]
         return url
+    if url.startswith('/static/img/uploads/'):
+        url = '/media/uploads/' + url.rsplit('/', 1)[-1]
     if url.startswith('/'):
         return f'{BASE_URL}{url}'
     return f'{BASE_URL}/{url.lstrip('/')}'
@@ -1144,7 +1191,7 @@ def email_static_image(filename):
     allowed = {'logo-horizontal.png', 'logo-banner.png', 'logo-app-icon.png', 'logo-mark-transparent.png'}
     if safe_name not in allowed:
         safe_name = 'logo-app-icon.png'
-    return public_asset_url(url_for('static', filename=f'img/{safe_name}'))
+    return f'{BASE_URL}/static/img/{safe_name}'
 
 
 def default_gift_image_url(external=False):
@@ -1162,31 +1209,43 @@ def gift_email_image(contribution):
 
 
 def render_email_shell(title, preview, body_html, button_text=None, button_url=None, image_url=None):
-    logo_url = EMAIL_LOGO_URL or email_static_image('logo-horizontal.png')
-    hero_image = email_static_image('logo-banner.png')
-    content_image = (f"<p style='margin:0 0 22px'><img src='{escape(image_url)}' alt='' style='display:block;width:100%;max-width:420px;height:auto;border:0;border-radius:8px'></p>" if image_url else '')
+    # Use a single, fixed public brand asset. Do not place a full-width hero graphic
+    # above every message: some email clients stretch it and create a very long email.
+    logo_url = email_static_image('logo-horizontal.png')
+    content_image = ''
+    if image_url:
+        safe_image_url = escape(public_asset_url(image_url), quote=True)
+        content_image = (
+            "<div style='margin:0 0 20px;text-align:center'>"
+            f"<img src='{safe_image_url}' alt='' width='420' "
+            "style='display:block;width:100%;max-width:420px;max-height:240px;height:auto;object-fit:contain;margin:0 auto;border:0;border-radius:8px'>"
+            "</div>"
+        )
     button = ''
     if button_text and button_url:
-        button = f"""<p style='margin:26px 0 0'><a href='{escape(button_url)}' style='display:inline-block;background:linear-gradient(135deg,#9ee8ff,#36b7ff);color:#03101d;text-decoration:none;padding:13px 18px;border-radius:14px;font-weight:900;box-shadow:0 12px 28px rgba(54,183,255,.24)'>{escape(button_text)}</a></p>"""
-    return f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'></head><body style='margin:0;background:#f3f6f8;color:#17232d;font-family:Arial,Helvetica,sans-serif'>
-    <div style='display:none;max-height:0;overflow:hidden;color:transparent;opacity:0'>{escape(preview)}</div>
-    <div style='padding:30px 14px;background:#f3f6f8'>
-      <div style='max-width:600px;margin:0 auto;background:#fff;border:1px solid #e3e9ed;border-radius:10px;overflow:hidden'>
-        <div style='background:#0b1c2b'><img src='{escape(hero_image)}' alt='' width='600' style='width:100%;max-width:600px;height:auto;display:block;border:0'></div>
-        <div style='padding:24px 28px 12px;border-bottom:1px solid #edf1f3'>
-          <img src='{escape(logo_url)}' alt='{escape(SITE_NAME)}' width='176' style='width:176px;max-width:100%;height:auto;display:block;border:0'>
-          <p style='margin:13px 0 0;color:#657783;font-size:11px;letter-spacing:.09em;text-transform:uppercase'>Creator gifting, made simple</p>
-        </div>
-        <div style='padding:28px'>
-          <h1 style='margin:0 0 14px;color:#142b3d;font-size:25px;line-height:1.25'>{escape(title)}</h1>
+        button = f"""<p style='margin:24px 0 0'><a href='{escape(button_url, quote=True)}' style='display:inline-block;background:#168bd2;color:#ffffff;text-decoration:none;padding:13px 20px;border-radius:7px;font-weight:700'>{escape(button_text)}</a></p>"""
+    return f"""<!doctype html>
+<html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>
+<body style='margin:0;padding:0;background:#f2f5f7;color:#24313a;font-family:Arial,Helvetica,sans-serif'>
+  <div style='display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all'>{escape(preview)}</div>
+  <table role='presentation' cellpadding='0' cellspacing='0' border='0' width='100%' style='background:#f2f5f7;border-collapse:collapse'>
+    <tr><td align='center' style='padding:28px 12px'>
+      <table role='presentation' cellpadding='0' cellspacing='0' border='0' width='600' style='width:100%;max-width:600px;background:#ffffff;border:1px solid #e3e9ed;border-collapse:separate;border-spacing:0'>
+        <tr><td style='padding:22px 28px;border-bottom:1px solid #edf1f3'>
+          <img src='{escape(logo_url, quote=True)}' alt='{escape(SITE_NAME, quote=True)}' width='190' style='display:block;width:190px;max-width:100%;height:auto;border:0'>
+        </td></tr>
+        <tr><td style='padding:28px'>
+          <h1 style='margin:0 0 18px;color:#172d3b;font-size:24px;line-height:1.3;font-weight:700'>{escape(title)}</h1>
           {content_image}
-          <div style='color:#394b57;line-height:1.7;font-size:15px'>{body_html}</div>
+          <div style='color:#3c4b55;font-size:15px;line-height:1.65;overflow-wrap:anywhere'>{body_html}</div>
           {button}
-          <p style='margin:28px 0 0;padding-top:18px;border-top:1px solid #edf1f3;color:#71818b;font-size:13px;line-height:1.6'>Need help? Reply to this email or contact support@arcticsender.com.</p>
-        </div>
-      </div>
-      <p style='max-width:600px;margin:14px auto 0;color:#84929a;font-size:12px;text-align:center'>This email was sent by {escape(SITE_NAME)}.</p>
-    </div></body></html>"""
+          <p style='margin:26px 0 0;padding-top:16px;border-top:1px solid #edf1f3;color:#71818b;font-size:13px;line-height:1.6'>Need help? Reply to this email or contact support@arcticsender.com.</p>
+        </td></tr>
+      </table>
+      <p style='margin:14px auto 0;color:#84929a;font-size:12px;text-align:center'>This email was sent by {escape(SITE_NAME)}.</p>
+    </td></tr>
+  </table>
+</body></html>"""
 
 
 def send_email_safe(to_email, subject, body):

@@ -22,7 +22,7 @@
       <div class="checkout-item-list">
         {% for entry in entries %}
           <div class="checkout-item-mini">
-            <img src="{{ entry.image_url or default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
+            <img src="{{ image_src(entry.image_url) if entry.image_url else default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
             <div>
               <b>{{ entry.title }}</b>
               <span>{{ entry.type_label }}</span>
