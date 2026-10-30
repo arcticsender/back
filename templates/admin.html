@@ -5,7 +5,8 @@
   <div>
     <div class="pill">Admin control center</div>
     <h1>Platform controls</h1>
-    <p>Manage creators, payment readiness, email health, MongoDB backups, cashouts, and account support from one cleaner dashboard.</p>
+    <p>Manage accounts, payments, email delivery, site appearance, and operational activity from one place.</p>
+    <p class="muted">Signed in with <strong>{{ admin_role|title }}</strong> access.</p>
   </div>
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('home') }}">View site</a></div>
 </section>
@@ -24,6 +25,7 @@
     <h3>Email / OTP</h3>
     <p>{% if email_status.enabled %}Ready through {{ email_status.provider }} from {{ email_status.from }}{% else %}Missing: {{ email_status.missing|join(', ') }}{% endif %}</p>
     <p class="muted">OTP is {% if email_status.otp_enabled %}enabled{% else %}disabled{% endif %}. Reply-to: {{ email_status.reply_to or 'none' }}</p>
+    <p class="muted" style="overflow-wrap:anywhere">Email logo: {{ email_status.logo_url }}<br>Banner: {{ email_status.banner_url }}</p>
     <form method="post" action="{{ url_for('admin_test_email') }}" class="admin-inline-form"><input name="to_email" placeholder="test@email.com"><button class="btn ghost">Send test</button></form>
   </div>
   <div class="feature-card compact-card">
@@ -38,6 +40,24 @@
   </div>
 </section>
 
+{% if current_user.admin_role in ['owner', 'admin'] %}
+<section class="section compact-section">
+  <div class="section-head"><h2>Site appearance</h2><span>Persistent setting</span></div>
+  <div class="panel compact-card admin-settings-panel">
+    <div><h3>Seasonal theme</h3><p class="muted">Choose automatic seasonal styling or pin a specific look. Changes apply site-wide without a redeploy.</p></div>
+    <form method="post" action="{{ url_for('admin_save_settings') }}" class="admin-inline-form">
+      <label class="sr-only" for="site-theme">Site theme</label>
+      <select id="site-theme" name="site_theme">
+        {% for theme in ['auto','winter','spring','summer','autumn','halloween','christmas','valentines','easter'] %}
+        <option value="{{ theme }}" {% if theme_preference == theme %}selected{% endif %}>{{ theme|title }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn">Save theme</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
 <section class="section compact-section">
   <div class="section-head"><h2>Accounts</h2><span>{{ users|length }} total</span></div>
   <div class="table panel admin-table"><table>
@@ -46,7 +66,7 @@
     <tr>
       <td><b>@{{ u.username }}</b><br><span class="muted">{{ u.display_name }}</span></td>
       <td>{{ u.email }}<br><span class="muted">{% if u.email_verified %}Verified{% else %}Unverified{% endif %}</span></td>
-      <td>{% if u.is_suspended %}<span class="status danger">Suspended</span>{% elif u.is_admin %}<span class="status ok">Admin</span>{% else %}<span class="status">Creator</span>{% endif %}</td>
+      <td>{% if u.is_suspended %}<span class="status danger">Suspended</span>{% elif u.is_admin %}<span class="status ok">{{ u.admin_role|title if u.admin_role else 'Moderator' }}</span>{% else %}<span class="status">Creator</span>{% endif %}</td>
       <td>{% if u.stripe_payouts_enabled and u.stripe_charges_enabled %}<span class="status ok">Ready</span>{% elif u.stripe_account_id %}<span class="status warning">Needs info</span>{% else %}<span class="status">Not connected</span>{% endif %}</td>
       <td>{{ money(u.balance_cents) }}<br><span class="muted">{{ money(u.lifetime_earned_cents) }} lifetime</span></td>
       <td>{% if u.last_login_at %}{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</td>
@@ -61,5 +81,11 @@
   <div class="table panel admin-table"><table><tr><th>Supporter</th><th>Creator</th><th>Type</th><th>Amount</th><th>Status</th><th>Stripe</th></tr>{% for c in contributions %}<tr><td>{{ c.supporter_name if c.supporter_name and c.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</td><td>@{{ c.creator.username }}</td><td>{{ c.support_type }}</td><td>{{ money(c.amount_cents) }}</td><td>{{ c.status }}</td><td>{{ c.stripe_session_id[:18] if c.stripe_session_id else '—' }}</td></tr>{% else %}<tr><td colspan="6">No contributions yet.</td></tr>{% endfor %}</table></div>
 </section>
 
-<section class="section compact-section"><div class="section-head"><h2>Cashout requests</h2></div><div class="table panel admin-table"><table><tr><th>Creator</th><th>Gross</th><th>Fee</th><th>Status</th><th>Stripe</th><th></th></tr>{% for c in cashouts %}<tr><td>@{{ c.creator.username }}</td><td>{{ money(c.gross_cents) }}</td><td>{{ money(c.fee_cents) }}</td><td>{{ c.status }}</td><td>{{ c.creator.stripe_account_id or 'Missing' }}</td><td class="right">{% if c.status == 'pending' %}<form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='approve') }}"><button>Approve</button></form><form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='reject') }}"><button>Reject</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No cashout requests.</td></tr>{% endfor %}</table></div></section>
+<section class="section compact-section"><div class="section-head"><h2>Cashout requests</h2></div><div class="table panel admin-table"><table><tr><th>Creator</th><th>Gross</th><th>Fee</th><th>Status</th><th>Stripe</th><th></th></tr>{% for c in cashouts %}<tr><td>@{{ c.creator.username }}</td><td>{{ money(c.gross_cents) }}</td><td>{{ money(c.fee_cents) }}</td><td>{{ c.status }}</td><td>{{ c.creator.stripe_account_id or 'Missing' }}</td><td class="right">{% if c.status == 'pending' and current_user.admin_role in ['owner', 'admin'] %}<form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='approve') }}"><button>Approve</button></form><form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='reject') }}"><button>Reject</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No cashout requests.</td></tr>{% endfor %}</table></div></section>
+<section class="section compact-section">
+  <div class="section-head"><h2>Admin activity</h2><span>Latest 30 events</span></div>
+  <div class="table panel admin-table"><table><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr>
+    {% for log in admin_logs %}<tr><td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '—' }}</td><td>{{ log.admin_email }}</td><td>{{ log.action }}</td><td>{{ log.target }}</td><td>{{ log.details }}</td></tr>{% else %}<tr><td colspan="5">No admin activity recorded yet.</td></tr>{% endfor %}
+  </table></div>
+</section>
 {% endblock %}

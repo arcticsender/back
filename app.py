@@ -91,11 +91,20 @@ SITE_NAME = os.getenv('SITE_NAME', 'ArcticSender')
 # theme name to pin/override the site-wide appearance.
 SUPPORTED_SITE_THEMES = {'winter', 'spring', 'summer', 'autumn', 'halloween', 'christmas', 'valentines', 'easter'}
 def get_active_site_theme():
+    # Admin's saved preference takes priority; environment configuration can still
+    # pin a theme for deployments, and auto remains the default.
     override = os.getenv('SITE_THEME', 'auto').strip().lower()
+    try:
+        saved = SiteSetting.query.filter_by(key='site_theme').first()
+        if saved and saved.value:
+            override = saved.value.strip().lower()
+    except Exception:
+        # The setting table may not exist during the first database boot.
+        pass
     if override in SUPPORTED_SITE_THEMES:
         return override
     if override not in ('', 'auto'):
-        app.logger.warning('Unknown SITE_THEME %r; using automatic seasonal theme.', override)
+        app.logger.warning('Unknown site theme %r; using automatic seasonal theme.', override)
     today = datetime.now().date()
     month, day = today.month, today.day
     if month == 10: return 'halloween'
@@ -106,7 +115,7 @@ def get_active_site_theme():
     if month in (3, 4, 5): return 'spring'
     if month in (6, 7, 8): return 'summer'
     return 'autumn'
-BASE_URL = (os.getenv('SITE_URL') or os.getenv('BASE_URL') or 'http://127.0.0.1:5000').rstrip('/')
+BASE_URL = (os.getenv('SITE_URL') or os.getenv('BASE_URL') or 'https://arcticsender.com').rstrip('/')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
@@ -223,6 +232,7 @@ class User(db.Model):
     pending_cashout_cents = db.Column(db.Integer, nullable=False, default=0)
     is_creator = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
+    admin_role = db.Column(db.String(20), nullable=False, default='moderator')
     is_suspended = db.Column(db.Boolean, default=False)
     email_verified = db.Column(db.Boolean, default=False)
     signup_otp_hash = db.Column(db.String(255), default='')
@@ -249,6 +259,38 @@ class User(db.Model):
     @property
     def lifetime_earned(self):
         return self.lifetime_earned_cents / 100
+
+
+class SiteSetting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    value = db.Column(db.Text, nullable=False, default='')
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None))
+
+
+class AdminAuditLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    admin_user_id = db.Column(db.Integer, nullable=True, index=True)
+    admin_email = db.Column(db.String(140), nullable=False, default='')
+    action = db.Column(db.String(80), nullable=False, index=True)
+    target = db.Column(db.String(180), nullable=False, default='')
+    details = db.Column(db.Text, nullable=False, default='')
+    ip_address = db.Column(db.String(64), nullable=False, default='')
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), index=True)
+
+
+def write_admin_audit(action, target='', details=''):
+    actor = current_user()
+    try:
+        db.session.add(AdminAuditLog(
+            admin_user_id=actor.id if actor else None,
+            admin_email=actor.email if actor else 'system',
+            action=str(action)[:80], target=str(target)[:180], details=str(details)[:2000],
+            ip_address=(request.remote_addr or '')[:64],
+        ))
+    except Exception:
+        app.logger.exception('Could not record admin audit event: %s', action)
+
 
 
 class WishlistItem(db.Model):
@@ -950,6 +992,25 @@ def admin_required(view):
     return wrapped
 
 
+ADMIN_ROLE_PERMISSIONS = {
+    'owner': {'view', 'users', 'moderation', 'roles', 'payments', 'settings', 'email', 'backups'},
+    'admin': {'view', 'users', 'moderation', 'payments', 'settings', 'email', 'backups'},
+    'moderator': {'view', 'users', 'moderation', 'email'},
+}
+
+def admin_can(permission, user=None):
+    user = user or current_user()
+    if not user or not user.is_admin or user.is_suspended:
+        return False
+    role = user.admin_role if user.admin_role in ADMIN_ROLE_PERMISSIONS else 'moderator'
+    return permission in ADMIN_ROLE_PERMISSIONS[role]
+
+
+def require_admin_permission(permission):
+    if not admin_can(permission):
+        abort(403)
+
+
 IMAGE_UPLOAD_SPECS = {
     # Stored dimensions are intentionally fixed so creator images always look clean
     # and the server never keeps massive original phone photos.
@@ -1055,6 +1116,8 @@ def email_config_status():
         'enabled': not missing,
         'missing': missing,
         'provider': 'Resend',
+        'logo_url': EMAIL_LOGO_URL or email_static_image('logo-horizontal.png'),
+        'banner_url': email_static_image('logo-banner.png'),
         'api_url': RESEND_API_URL,
         'from': MAIL_FROM,
         'from_name': MAIL_FROM_NAME,
@@ -1075,10 +1138,19 @@ def public_asset_url(url):
     return f'{BASE_URL}/{url.lstrip('/')}'
 
 
+def email_static_image(filename):
+    """Return a fully-qualified, public URL for a bundled static email asset."""
+    safe_name = os.path.basename(str(filename or ''))
+    allowed = {'logo-horizontal.png', 'logo-banner.png', 'logo-app-icon.png', 'logo-mark-transparent.png'}
+    if safe_name not in allowed:
+        safe_name = 'logo-app-icon.png'
+    return public_asset_url(url_for('static', filename=f'img/{safe_name}'))
+
+
 def default_gift_image_url(external=False):
     """One safe fallback for deleted gifts, missing uploads, emails, and public cards."""
     path = url_for('static', filename='img/logo-app-icon.png')
-    return public_asset_url(path) if external else path
+    return email_static_image('logo-app-icon.png') if external else path
 
 
 def gift_email_image(contribution):
@@ -1090,30 +1162,30 @@ def gift_email_image(contribution):
 
 
 def render_email_shell(title, preview, body_html, button_text=None, button_url=None, image_url=None):
-    logo_url = EMAIL_LOGO_URL or f'{BASE_URL}{url_for("static", filename="img/logo-horizontal.png")}'
-    hero_image = image_url or logo_url
+    logo_url = EMAIL_LOGO_URL or email_static_image('logo-horizontal.png')
+    hero_image = email_static_image('logo-banner.png')
+    content_image = (f"<p style='margin:0 0 22px'><img src='{escape(image_url)}' alt='' style='display:block;width:100%;max-width:420px;height:auto;border:0;border-radius:8px'></p>" if image_url else '')
     button = ''
     if button_text and button_url:
         button = f"""<p style='margin:26px 0 0'><a href='{escape(button_url)}' style='display:inline-block;background:linear-gradient(135deg,#9ee8ff,#36b7ff);color:#03101d;text-decoration:none;padding:13px 18px;border-radius:14px;font-weight:900;box-shadow:0 12px 28px rgba(54,183,255,.24)'>{escape(button_text)}</a></p>"""
-    return f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'></head><body style='margin:0;background:#06111f;color:#eafaff;font-family:Inter,Arial,sans-serif'>
-    <div style='display:none;max-height:0;overflow:hidden;color:transparent'>{escape(preview)}</div>
-    <div style='padding:32px 16px;background:radial-gradient(circle at 20% 0,rgba(54,183,255,.22),transparent 35%),radial-gradient(circle at 85% 10%,rgba(158,232,255,.12),transparent 30%),#06111f'>
-      <div style='max-width:640px;margin:0 auto;background:#0b1e35;border:1px solid #1e5b88;border-radius:26px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.30)'>
-        <div style='height:150px;background:linear-gradient(135deg,rgba(54,183,255,.20),rgba(22,107,255,.12));text-align:center;overflow:hidden'>
-          <img src='{escape(hero_image)}' alt='{escape(SITE_NAME)}' style='width:100%;height:150px;object-fit:cover;display:block;opacity:.92'>
+    return f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><meta charset='utf-8'></head><body style='margin:0;background:#f3f6f8;color:#17232d;font-family:Arial,Helvetica,sans-serif'>
+    <div style='display:none;max-height:0;overflow:hidden;color:transparent;opacity:0'>{escape(preview)}</div>
+    <div style='padding:30px 14px;background:#f3f6f8'>
+      <div style='max-width:600px;margin:0 auto;background:#fff;border:1px solid #e3e9ed;border-radius:10px;overflow:hidden'>
+        <div style='background:#0b1c2b'><img src='{escape(hero_image)}' alt='' width='600' style='width:100%;max-width:600px;height:auto;display:block;border:0'></div>
+        <div style='padding:24px 28px 12px;border-bottom:1px solid #edf1f3'>
+          <img src='{escape(logo_url)}' alt='{escape(SITE_NAME)}' width='176' style='width:176px;max-width:100%;height:auto;display:block;border:0'>
+          <p style='margin:13px 0 0;color:#657783;font-size:11px;letter-spacing:.09em;text-transform:uppercase'>Creator gifting, made simple</p>
         </div>
-        <div style='padding:20px 26px 18px;border-bottom:1px solid rgba(158,232,255,.16);background:linear-gradient(135deg,rgba(54,183,255,.13),rgba(22,107,255,.06))'>
-          <img src='{escape(logo_url)}' alt='{escape(SITE_NAME)}' style='max-width:190px;height:auto;display:block;margin:0 0 8px'>
-          <div style='font-weight:900;letter-spacing:.08em;font-size:11px;text-transform:uppercase;color:#9ee8ff'>Secure creator gifting</div>
-        </div>
-        <div style='padding:28px 26px'>
-          <h1 style='margin:0 0 14px;color:#9ee8ff;font-size:28px;line-height:1.1'>{escape(title)}</h1>
-          <div style='color:#d9f6ff;line-height:1.65;font-size:15px'>{body_html}</div>
+        <div style='padding:28px'>
+          <h1 style='margin:0 0 14px;color:#142b3d;font-size:25px;line-height:1.25'>{escape(title)}</h1>
+          {content_image}
+          <div style='color:#394b57;line-height:1.7;font-size:15px'>{body_html}</div>
           {button}
-          <p style='margin:28px 0 0;color:#8fb8c9;font-size:13px;line-height:1.6'>Need help? Reply to this email or contact support@arcticsender.com.</p>
+          <p style='margin:28px 0 0;padding-top:18px;border-top:1px solid #edf1f3;color:#71818b;font-size:13px;line-height:1.6'>Need help? Reply to this email or contact support@arcticsender.com.</p>
         </div>
       </div>
-      <p style='max-width:640px;margin:14px auto 0;color:#6f9aad;font-size:12px;text-align:center'>This email was sent by {escape(SITE_NAME)}.</p>
+      <p style='max-width:600px;margin:14px auto 0;color:#84929a;font-size:12px;text-align:center'>This email was sent by {escape(SITE_NAME)}.</p>
     </div></body></html>"""
 
 
@@ -1779,6 +1851,7 @@ def register():
         user = User(username=username, display_name=display_name, email=email, password_hash=generate_password_hash(password))
         if AUTO_ADMIN_FIRST_USER and User.query.count() == 0:
             user.is_admin = True
+            user.admin_role = 'owner'
             user.email_verified = True
         elif not EMAIL_OTP_ENABLED:
             user.email_verified = True
@@ -2748,7 +2821,8 @@ def admin():
         'stripe_ready': User.query.filter_by(stripe_payouts_enabled=True).count(),
         'suspended': User.query.filter_by(is_suspended=True).count(),
     }
-    return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals)
+    logs = AdminAuditLog.query.order_by(AdminAuditLog.created_at.desc()).limit(30).all()
+    return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals, admin_logs=logs, admin_role=(current_user().admin_role or 'moderator'), theme_preference=(SiteSetting.query.filter_by(key='site_theme').first().value if SiteSetting.query.filter_by(key='site_theme').first() else os.getenv('SITE_THEME', 'auto')))
 
 
 @app.route('/admin/user/<int:user_id>')
@@ -2769,6 +2843,11 @@ def admin_user_action(user_id):
     admin_user = current_user()
     user = db.session.get(User, user_id) or abort(404)
     action = request.form.get('action', '')
+    allowed_actions = {'suspend', 'unsuspend', 'verify_email', 'save_note', 'resend_welcome'}
+    if admin_user.admin_role == 'moderator' and action not in allowed_actions:
+        abort(403)
+    if action in {'make_admin', 'remove_admin', 'set_admin_role'}:
+        require_admin_permission('roles')
     admin_user.last_seen_at = datetime.now(UTC).replace(tzinfo=None)
     note = request.form.get('admin_note', '').strip()[:2000]
     if note or action == 'save_note':
@@ -2794,13 +2873,31 @@ def admin_user_action(user_id):
         flash('Creator status updated.', 'success')
     elif action == 'make_admin':
         user.is_admin = True
-        flash('Admin role granted.', 'success')
+        user.admin_role = 'moderator'
+        flash('Moderator access granted.', 'success')
+    elif action == 'set_admin_role':
+        role = request.form.get('admin_role', 'moderator').strip().lower()
+        if role not in {'owner', 'admin', 'moderator'}:
+            abort(400)
+        if user.id == admin_user.id and role != 'owner':
+            flash('You cannot lower your own admin role.', 'danger')
+            return redirect(url_for('admin_user_detail', user_id=user.id))
+        if user.is_admin and user.admin_role == 'owner' and role != 'owner' and User.query.filter_by(is_admin=True, admin_role='owner').count() <= 1:
+            flash('At least one owner account must remain.', 'danger')
+            return redirect(url_for('admin_user_detail', user_id=user.id))
+        user.is_admin = True
+        user.admin_role = role
+        flash(f'Admin role set to {role}.', 'success')
     elif action == 'remove_admin':
         if user.id == admin_user.id:
             flash('You cannot remove your own admin role.', 'danger')
             return redirect(url_for('admin_user_detail', user_id=user.id))
+        if user.admin_role == 'owner' and User.query.filter_by(is_admin=True, admin_role='owner').count() <= 1:
+            flash('At least one owner account must remain.', 'danger')
+            return redirect(url_for('admin_user_detail', user_id=user.id))
         user.is_admin = False
-        flash('Admin role removed.', 'info')
+        user.admin_role = 'moderator'
+        flash('Admin access removed.', 'info')
     elif action == 'reset_password':
         temp = secrets.token_urlsafe(14) + 'A1!'
         user.password_hash = generate_password_hash(temp)
@@ -2822,17 +2919,40 @@ def admin_user_action(user_id):
         flash('Admin note saved.', 'success')
     else:
         flash('Unknown admin action.', 'danger')
+    write_admin_audit('user.' + action, f'@{user.username} (#{user.id})', note or 'Account support action')
     db.session.commit()
     mongo_backup_model(user)
     return redirect(url_for('admin_user_detail', user_id=user.id))
 
 
+@app.route('/admin/settings', methods=['POST'])
+@admin_required
+def admin_save_settings():
+    require_admin_permission('settings')
+    theme = request.form.get('site_theme', 'auto').strip().lower()
+    if theme not in SUPPORTED_SITE_THEMES and theme != 'auto':
+        abort(400)
+    setting = SiteSetting.query.filter_by(key='site_theme').first()
+    if not setting:
+        setting = SiteSetting(key='site_theme', value=theme)
+        db.session.add(setting)
+    else:
+        setting.value = theme
+    write_admin_audit('settings.site_theme', 'Site appearance', f'Site theme changed to {theme}')
+    db.session.commit()
+    flash('Site appearance saved.', 'success')
+    return redirect(url_for('admin'))
+
+
 @app.route('/admin/test-email', methods=['POST'])
 @admin_required
 def admin_test_email():
+    require_admin_permission('email')
     to_email = request.form.get('to_email', '').strip() or current_user().email
     body = '<p>This is a test email from your ArcticSender Resend setup. If you received this, auto emails are working.</p>'
     if send_email_safe(to_email, f'{SITE_NAME} Resend test', render_email_shell('Resend test successful', 'ArcticSender email sending is working.', body, 'Open admin', f'{BASE_URL}{url_for("admin")}')):
+        write_admin_audit('email.test_sent', to_email, 'Admin test email sent')
+        db.session.commit()
         flash(f'Test email sent to {to_email}.', 'success')
     else:
         flash('Test email failed. Check RESEND_API_KEY and MAIL_FROM/domain verification.', 'danger')
@@ -2842,6 +2962,9 @@ def admin_test_email():
 @app.route('/admin/mongo-sync', methods=['POST'])
 @admin_required
 def admin_mongo_sync():
+    require_admin_permission('backups')
+    write_admin_audit('backup.mongo_sync', 'MongoDB', 'Manual backup sync requested')
+    db.session.commit()
     if mongo_backup_all():
         flash('MongoDB backup sync completed.', 'success')
     else:
@@ -2856,6 +2979,7 @@ def admin_mongo_sync():
 @app.route('/admin/cashout/<int:cashout_id>/<action>', methods=['POST'])
 @admin_required
 def admin_cashout_action(cashout_id, action):
+    require_admin_permission('payments')
     cashout_obj = db.session.get(CashoutRequest, cashout_id) or abort(404)
     creator = cashout_obj.creator
     if cashout_obj.status != 'pending':
@@ -2890,6 +3014,7 @@ def admin_cashout_action(cashout_id, action):
         flash('Cashout rejected and funds returned.', 'info')
     else:
         abort(404)
+    write_admin_audit('cashout.' + action, f'Cashout #{cashout_obj.id}', f'Creator @{creator.username}; amount {cashout_obj.gross_cents} cents')
     db.session.commit()
     mongo_backup_model(cashout_obj)
     mongo_backup_model(creator)
@@ -2926,6 +3051,7 @@ def ensure_admin_account():
             email=ADMIN_EMAIL,
             password_hash=generate_password_hash(ADMIN_PASSWORD),
             is_admin=True,
+            admin_role='owner',
             email_verified=True,
             password_changed_at=datetime.now(UTC).replace(tzinfo=None),
         )
@@ -2937,6 +3063,9 @@ def ensure_admin_account():
     changed = False
     if not admin.is_admin:
         admin.is_admin = True
+        changed = True
+    if admin.admin_role != 'owner':
+        admin.admin_role = 'owner'
         changed = True
     if ADMIN_PASSWORD:
         admin.password_hash = generate_password_hash(ADMIN_PASSWORD)
@@ -2953,6 +3082,12 @@ def ensure_admin_account():
 
 def migrate_sqlite_columns():
     if not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:///'):
+        # Render/PostgreSQL deployments also need the added role field on existing users.
+        try:
+            with db.engine.begin() as conn:
+                conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS admin_role VARCHAR(20) NOT NULL DEFAULT 'moderator'")
+        except Exception:
+            app.logger.exception('Could not ensure admin_role column on the active database')
         return
     with db.engine.connect() as conn:
         tables = [row[0] for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
@@ -2967,6 +3102,7 @@ def migrate_sqlite_columns():
             if 'stripe_country' not in columns:
                 conn.exec_driver_sql("ALTER TABLE user ADD COLUMN stripe_country VARCHAR(2) DEFAULT 'CA'")
             extra_user_columns = {
+                'admin_role': "ALTER TABLE user ADD COLUMN admin_role VARCHAR(20) DEFAULT 'moderator' NOT NULL",
                 'is_suspended': "ALTER TABLE user ADD COLUMN is_suspended BOOLEAN DEFAULT 0",
                 'email_verified': "ALTER TABLE user ADD COLUMN email_verified BOOLEAN DEFAULT 0",
                 'signup_otp_hash': "ALTER TABLE user ADD COLUMN signup_otp_hash VARCHAR(255) DEFAULT ''",
@@ -3042,6 +3178,11 @@ def start_self_ping_thread():
 with app.app_context():
     db.create_all()
     migrate_sqlite_columns()
+    if User.query.filter_by(is_admin=True, admin_role='owner').count() == 0:
+        first_admin = User.query.filter_by(is_admin=True).order_by(User.created_at.asc()).first()
+        if first_admin:
+            first_admin.admin_role = 'owner'
+            db.session.commit()
     mongo_restore_uploads()
     restored_from_mongo = mongo_restore_all_if_empty()
     ensure_admin_account()

@@ -1974,3 +1974,49 @@ body[data-theme="christmas"] #seasonal-atmosphere { background:radial-gradient(c
 img { max-width:100%; }
 @media(max-width:760px) { html{-webkit-text-size-adjust:100%;} body{overflow-x:hidden;} .nav{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));} .brand-word{display:none;} .brand-logo{width:142px;height:38px;} .mobile-drawer{padding-bottom:max(24px,env(safe-area-inset-bottom));} main{min-width:0;} .section{padding-left:14px!important;padding-right:14px!important;} .panel,.frost-card{max-width:100%;} input,select,textarea{max-width:100%;font-size:16px;} .footer{gap:22px;padding-left:18px;padding-right:18px;} }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;} #snow-canvas{display:none!important;} }
+
+/* Seasonal art direction: each season changes atmosphere and material, not just hue. */
+body[data-theme="winter"] { --season-accent:#a8d9e8; --season-accent-2:#e5f3f5; --season-bg:#09151c; --season-glow:rgba(145,197,214,.12); }
+body[data-theme="winter"]::before { background:linear-gradient(155deg,rgba(195,224,231,.045),transparent 42%),radial-gradient(ellipse at 85% 8%,rgba(120,174,197,.13),transparent 36%); }
+body[data-theme="spring"] { --season-accent:#a8c9a1; --season-accent-2:#d9c5a8; --season-bg:#111914; --season-glow:rgba(144,183,137,.12); }
+body[data-theme="spring"]::before { background:radial-gradient(ellipse at 8% 12%,rgba(172,205,145,.11),transparent 32%),radial-gradient(ellipse at 88% 26%,rgba(221,191,156,.09),transparent 34%); }
+body[data-theme="summer"] { --season-accent:#e6b86e; --season-accent-2:#d58d63; --season-bg:#19150f; --season-glow:rgba(223,166,87,.12); }
+body[data-theme="summer"]::before { background:linear-gradient(115deg,rgba(237,183,104,.07),transparent 45%),radial-gradient(ellipse at 80% 4%,rgba(220,128,77,.13),transparent 36%); }
+body[data-theme="autumn"] { --season-accent:#cf936b; --season-accent-2:#a86b50; --season-bg:#17120f; --season-glow:rgba(181,111,75,.13); }
+body[data-theme="autumn"]::before { background:linear-gradient(145deg,rgba(174,104,70,.08),transparent 48%),radial-gradient(ellipse at 90% 12%,rgba(204,144,89,.12),transparent 35%); }
+body[data-theme="halloween"] { --season-accent:#e5a05d; --season-accent-2:#9a79b5; --season-bg:#120f14; --season-glow:rgba(196,112,61,.13); }
+body[data-theme="halloween"]::before { background:radial-gradient(ellipse at 12% 10%,rgba(201,107,52,.16),transparent 28%),radial-gradient(ellipse at 92% 25%,rgba(111,77,145,.15),transparent 34%); }
+body[data-theme="christmas"] { --season-accent:#9dcbb8; --season-accent-2:#c78b8b; --season-bg:#0d1716; --season-glow:rgba(117,171,145,.12); }
+body[data-theme="christmas"]::before { background:linear-gradient(135deg,rgba(156,199,175,.07),transparent 42%),radial-gradient(ellipse at 92% 12%,rgba(184,100,105,.11),transparent 32%); }
+body[data-theme="valentines"] { --season-accent:#d99aaa; --season-accent-2:#a98bb8; --season-bg:#191218; --season-glow:rgba(192,119,147,.12); }
+body[data-theme="valentines"]::before { background:radial-gradient(ellipse at 12% 15%,rgba(210,142,164,.12),transparent 32%),radial-gradient(ellipse at 88% 22%,rgba(156,124,177,.12),transparent 32%); }
+body[data-theme="easter"] { --season-accent:#b7b0d8; --season-accent-2:#a8cbb7; --season-bg:#11171a; --season-glow:rgba(166,180,204,.12); }
+body[data-theme="easter"]::before { background:radial-gradient(ellipse at 12% 12%,rgba(175,162,208,.13),transparent 30%),radial-gradient(ellipse at 88% 22%,rgba(151,194,170,.12),transparent 34%); }
+
+/* Keep seasonal colour restrained in the actual interface. */
+body[data-theme] .nav { border-bottom-color:color-mix(in srgb,var(--season-accent) 16%,transparent); }
+body[data-theme] .btn:not(.ghost),body[data-theme] .btn-primary,body[data-theme] .primary-button { background:var(--season-accent);background-image:none;color:#111820;box-shadow:0 5px 16px color-mix(in srgb,var(--season-accent) 16%,transparent); }
+body[data-theme] .btn:not(.ghost):hover,body[data-theme] .btn-primary:hover,body[data-theme] .primary-button:hover { filter:brightness(1.07);transform:translateY(-1px); }
+body[data-theme] .panel,body[data-theme] .frost-card,body[data-theme] .stat-card { box-shadow:0 14px 38px rgba(0,0,0,.12); }
+body[data-theme="halloween"] .panel,body[data-theme="autumn"] .panel { background-color:rgba(27,22,23,.92); }
+body[data-theme="christmas"] .panel,body[data-theme="winter"] .panel { background-color:rgba(14,27,31,.92); }
+body[data-theme="spring"] .panel,body[data-theme="easter"] .panel { background-color:rgba(19,29,25,.92); }
+body[data-theme="summer"] .panel { background-color:rgba(31,25,18,.92); }
+body[data-theme="valentines"] .panel { background-color:rgba(30,20,29,.92); }
+
+.admin-settings-panel { display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap; }
+.admin-settings-panel h3 { margin:0 0 6px; }
+.admin-settings-panel p { margin:0;max-width:620px; }
+.admin-settings-panel select { min-width:190px; }
+.admin-role-editor { margin-top:18px;padding-top:16px;border-top:1px solid var(--line,rgba(255,255,255,.1)); }
+.admin-role-editor label { display:block;margin-bottom:8px;font-weight:700; }
+@media(max-width:680px) { .admin-settings-panel{align-items:stretch;} .admin-settings-panel .admin-inline-form{width:100%;display:grid;grid-template-columns:1fr;} .admin-settings-panel .admin-inline-form .btn{width:100%;} }
+/* A little seasonal texture, kept low contrast so the content stays first. */
+body[data-theme="winter"] #seasonal-atmosphere { background-image:radial-gradient(1px 1px at 14% 22%,rgba(224,241,246,.30) 50%,transparent 55%),radial-gradient(1px 1px at 76% 68%,rgba(224,241,246,.22) 50%,transparent 55%);background-size:180px 180px,240px 240px; }
+body[data-theme="spring"] #seasonal-atmosphere { background-image:radial-gradient(ellipse at 20% 25%,rgba(168,201,161,.10) 0 1px,transparent 2px),radial-gradient(ellipse at 78% 72%,rgba(217,197,168,.10) 0 1px,transparent 2px);background-size:160px 190px,220px 240px; }
+body[data-theme="summer"] #seasonal-atmosphere { background-image:linear-gradient(115deg,transparent 47%,rgba(230,184,110,.045) 48%,transparent 50%);background-size:260px 260px; }
+body[data-theme="autumn"] #seasonal-atmosphere { background-image:radial-gradient(ellipse at 20% 20%,rgba(207,147,107,.10) 0 2px,transparent 3px),radial-gradient(ellipse at 75% 68%,rgba(168,107,80,.10) 0 2px,transparent 3px);background-size:190px 210px,250px 260px; }
+body[data-theme="halloween"] #seasonal-atmosphere { background-image:radial-gradient(circle at 14% 22%,rgba(229,160,93,.11) 0 2px,transparent 3px),radial-gradient(circle at 82% 65%,rgba(154,121,181,.12) 0 2px,transparent 3px);background-size:210px 230px,260px 270px; }
+body[data-theme="christmas"] #seasonal-atmosphere { background-image:radial-gradient(1px 1px at 18% 28%,rgba(225,244,233,.24) 50%,transparent 55%),radial-gradient(1px 1px at 74% 72%,rgba(225,244,233,.20) 50%,transparent 55%);background-size:170px 170px,230px 230px; }
+body[data-theme="valentines"] #seasonal-atmosphere { background-image:radial-gradient(ellipse at 20% 28%,rgba(217,154,170,.10) 0 2px,transparent 3px),radial-gradient(ellipse at 80% 72%,rgba(169,139,184,.10) 0 2px,transparent 3px);background-size:200px 220px,250px 270px; }
+body[data-theme="easter"] #seasonal-atmosphere { background-image:radial-gradient(ellipse at 22% 30%,rgba(183,176,216,.11) 0 2px,transparent 3px),radial-gradient(ellipse at 78% 70%,rgba(168,203,183,.11) 0 2px,transparent 3px);background-size:190px 210px,240px 260px; }

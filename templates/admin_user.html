@@ -15,7 +15,7 @@
     <div class="pill">Account info</div>
     <div class="admin-kv"><span>User ID</span><b>{{ managed_user.id }}</b></div>
     <div class="admin-kv"><span>Email verified</span><b>{{ 'Yes' if managed_user.email_verified else 'No' }}</b></div>
-    <div class="admin-kv"><span>Role</span><b>{% if managed_user.is_admin %}Admin{% elif managed_user.is_creator %}Creator{% else %}User{% endif %}</b></div>
+    <div class="admin-kv"><span>Role</span><b>{% if managed_user.is_admin %}{{ managed_user.admin_role|title }}{% elif managed_user.is_creator %}Creator{% else %}User{% endif %}</b></div>
     <div class="admin-kv"><span>Status</span><b>{{ 'Suspended' if managed_user.is_suspended else 'Active' }}</b></div>
     <div class="admin-kv"><span>Joined</span><b>{{ managed_user.created_at.strftime('%Y-%m-%d') }}</b></div>
     <div class="admin-kv"><span>Last login</span><b>{% if managed_user.last_login_at %}{{ managed_user.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</b></div>
@@ -40,11 +40,22 @@
     <div class="admin-action-grid">
       {% if managed_user.is_suspended %}<button name="action" value="unsuspend">Unsuspend</button>{% else %}<button class="ghost" name="action" value="suspend">Suspend</button>{% endif %}
       <button class="ghost" name="action" value="verify_email">Verify email</button>
-      <button class="ghost" name="action" value="toggle_creator">Toggle creator</button>
-      {% if managed_user.is_admin %}<button class="ghost" name="action" value="remove_admin">Remove admin</button>{% else %}<button class="ghost" name="action" value="make_admin">Make admin</button>{% endif %}
+      {% if current_user.admin_role in ['owner', 'admin'] %}<button class="ghost" name="action" value="toggle_creator">Toggle creator access</button>{% endif %}
+      {% if current_user.admin_role == 'owner' %}
+        {% if managed_user.is_admin %}<button class="ghost" name="action" value="remove_admin">Remove admin access</button>{% else %}<button class="ghost" name="action" value="make_admin">Grant moderator access</button>{% endif %}
+      {% endif %}
       <button class="ghost" name="action" value="resend_welcome">Send welcome email</button>
-      <button class="ghost" name="action" value="reset_password" onclick="return confirm('Reset this user password and show/email a temporary password?')">Reset password</button>
+      {% if current_user.admin_role in ['owner', 'admin'] %}<button class="ghost" name="action" value="reset_password" onclick="return confirm('Reset this user password and email a temporary password?')">Reset password</button>{% endif %}
     </div>
+    {% if current_user.admin_role == 'owner' %}
+    <div class="admin-role-editor">
+      <label for="admin-role-select">Admin permission level</label>
+      <div class="admin-inline-form">
+        <select id="admin-role-select" name="admin_role"><option value="moderator" {% if managed_user.admin_role == 'moderator' %}selected{% endif %}>Moderator — account support</option><option value="admin" {% if managed_user.admin_role == 'admin' %}selected{% endif %}>Admin — settings and payments</option><option value="owner" {% if managed_user.admin_role == 'owner' %}selected{% endif %}>Owner — full control</option></select>
+        <button class="btn ghost" name="action" value="set_admin_role">Save role</button>
+      </div>
+    </div>
+    {% endif %}
   </form>
 </section>
 
