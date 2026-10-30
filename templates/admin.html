@@ -13,13 +13,15 @@
 
 <section class="section admin-stats compact-section">
   <div class="stat-card"><span>Users</span><b>{{ users|length }}</b><small>{{ totals.verified_users }} verified · {{ totals.suspended }} suspended</small></div>
-  <div class="stat-card"><span>Paid volume</span><b>{{ money(totals.paid_cents) }}</b><small>{{ money(totals.pending_cents) }} pending</small></div>
+  <div class="stat-card"><span>Paid volume</span><b>{{ money(totals.paid_cents) }}</b><small>Successfully paid contributions</small></div>
   <div class="stat-card"><span>Stripe ready</span><b>{{ totals.stripe_ready }}</b><small>Creators with payments + payouts enabled</small></div>
   <div class="stat-card"><span>Cash gifts</span><b>{{ items|length }}</b><small>Wishlist/cash gift items</small></div>
   <div class="stat-card"><span>Platform fees</span><b>{{ money(totals.platform_fees_cents) }}</b><small>Recorded on paid gifts</small></div>
   <div class="stat-card"><span>Refunded volume</span><b>{{ money(totals.refunds_cents) }}</b><small>Refund-status contributions</small></div>
   <div class="stat-card"><span>Successful gifts</span><b>{{ totals.paid_count }}</b><small>Completed contributions</small></div>
   <div class="stat-card"><span>Active users</span><b>{{ totals.active_users_30d }}</b><small>Seen in the last 30 days</small></div>
+  <div class="stat-card"><span>Creators</span><b>{{ totals.creator_users }}</b><small>{{ totals.total_users }} total accounts</small></div>
+  <div class="stat-card"><span>X connected</span><b>{{ totals.x_connected_users }}</b><small>{{ totals.x_auto_post_users }} enabled auto-posting</small></div>
 </section>
 
 <section class="section split-cards admin-health compact-section">
@@ -36,6 +38,11 @@
     <h3>MongoDB backup</h3>
     <p>{% if mongo_status.enabled %}Ready: {{ mongo_status.db }}{% else %}Missing: {{ mongo_status.missing|join(', ') or 'MONGO_URI' }}{% endif %}</p>
     <form method="post" action="{{ url_for('admin_mongo_sync') }}" style="margin-top:12px"><button class="btn ghost full">Run backup sync</button></form>
+  </div>
+  <div class="feature-card compact-card">
+    <h3>Error monitoring</h3>
+    <p>{% if sentry_configured %}Sentry is configured for server-side exception reporting.{% else %}Basic server logs are active. Set SENTRY_DSN to enable external error monitoring.{% endif %}</p>
+    <p class="muted">Sensitive request data is not intentionally attached to Sentry.</p>
   </div>
   <div class="feature-card compact-card">
     <h3>Payments</h3>
@@ -57,6 +64,8 @@
         {% endfor %}
       </select>
       <label class="admin-security-toggle"><input type="checkbox" name="login_otp_required" {% if otp_required %}checked{% endif %}> Require email verification on new devices</label>
+      <label class="admin-security-toggle"><input type="checkbox" name="registration_enabled" {% if site_setting_enabled('registration_enabled', true) %}checked{% endif %}> Allow new account registrations</label>
+      <label class="admin-security-toggle"><input type="checkbox" name="x_auto_post_enabled" {% if site_setting_enabled('x_auto_post_enabled', true) %}checked{% endif %}> Allow creator X auto-posting platform-wide</label>
       <label>Trusted device duration<select name="trusted_device_days"><option value="7" {% if trusted_days == 7 %}selected{% endif %}>7 days</option><option value="14" {% if trusted_days == 14 %}selected{% endif %}>14 days</option><option value="30" {% if trusted_days == 30 %}selected{% endif %}>30 days</option><option value="60" {% if trusted_days == 60 %}selected{% endif %}>60 days</option><option value="90" {% if trusted_days == 90 %}selected{% endif %}>90 days</option></select></label>
       <button class="btn">Save settings</button>
     </form>

@@ -17,6 +17,14 @@ from html import escape
 from datetime import datetime, UTC, timedelta
 from functools import wraps
 from decimal import Decimal, ROUND_HALF_UP
+from base64 import urlsafe_b64encode
+from hashlib import sha256
+from urllib.parse import urlencode
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+except ImportError:
+    Fernet = None
+    InvalidToken = Exception
 
 try:
     import stripe
@@ -31,6 +39,12 @@ try:
     import certifi
 except ImportError:
     certifi = None
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+except ImportError:
+    sentry_sdk = None
+    FlaskIntegration = None
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, jsonify, Response, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -90,6 +104,57 @@ if os.getenv('SESSION_COOKIE_SECURE', 'true' if os.getenv('APP_ENV', '').lower()
 
 SITE_NAME = os.getenv('SITE_NAME', 'ArcticSender')
 
+
+X_CLIENT_ID = (os.getenv('X_CLIENT_ID') or '').strip()
+X_CLIENT_SECRET = (os.getenv('X_CLIENT_SECRET') or '').strip()
+X_REDIRECT_URI = (os.getenv('X_REDIRECT_URI') or '').strip()
+def x_fernet():
+    if not Fernet or not app.config.get('SECRET_KEY') or app.config['SECRET_KEY'] == 'dev-change-this-secret':
+        return None
+    key = urlsafe_b64encode(sha256(app.config['SECRET_KEY'].encode('utf-8')).digest())
+    return Fernet(key)
+def encrypt_x_token(value):
+    cipher = x_fernet()
+    return cipher.encrypt(value.encode()).decode() if cipher and value else ''
+def decrypt_x_token(value):
+    cipher = x_fernet()
+    if not cipher or not value: return ''
+    try: return cipher.decrypt(value.encode()).decode()
+    except Exception: return ''
+def x_api_request(method, path, access_token, payload=None):
+    if not requests: raise RuntimeError('HTTP client unavailable')
+    response = requests.request(method, 'https://api.x.com/2/' + path.lstrip('/'), headers={'Authorization': 'Bearer ' + access_token, 'Content-Type': 'application/json'}, json=payload, timeout=15)
+    response.raise_for_status()
+    return response.json()
+def refresh_x_token(user):
+    refresh = decrypt_x_token(user.x_refresh_token_enc)
+    if not refresh or not X_CLIENT_ID: return ''
+    data = {'grant_type':'refresh_token','refresh_token':refresh,'client_id':X_CLIENT_ID}
+    auth = (X_CLIENT_ID, X_CLIENT_SECRET) if X_CLIENT_SECRET else None
+    response = requests.post('https://api.x.com/2/oauth2/token', data=data, auth=auth, timeout=15)
+    response.raise_for_status(); payload=response.json()
+    user.x_access_token_enc=encrypt_x_token(payload.get('access_token',''))
+    if payload.get('refresh_token'): user.x_refresh_token_enc=encrypt_x_token(payload['refresh_token'])
+    user.x_token_expires_at=datetime.now(UTC).replace(tzinfo=None)+timedelta(seconds=int(payload.get('expires_in',7200)))
+    db.session.commit(); return payload.get('access_token','')
+def post_paid_gift_to_x(contribution):
+    user=contribution.creator
+    if not site_setting_enabled('x_auto_post_enabled', True) or not user.x_auto_post or not user.x_access_token_enc or contribution.x_posted_at or contribution.x_post_status in ('sending','posted'):
+        return False
+    user_token=decrypt_x_token(user.x_access_token_enc)
+    if not user_token: contribution.x_post_status='failed'; db.session.commit(); return False
+    contribution.x_post_status='sending'; db.session.commit()
+    try:
+        if user.x_token_expires_at and user.x_token_expires_at <= datetime.now(UTC).replace(tzinfo=None)+timedelta(minutes=2):
+            user_token=refresh_x_token(user)
+        title=contribution.item.title if contribution.item else 'a gift'
+        text=f'Just received {money(contribution.amount_cents)} for {title} on ArcticSender ❄️'
+        x_api_request('POST','tweets',user_token,{'text':text[:280]})
+        contribution.x_post_status='posted'; contribution.x_posted_at=datetime.now(UTC).replace(tzinfo=None); db.session.commit(); return True
+    except Exception:
+        app.logger.exception('X auto-post failed for contribution %s', contribution.id)
+        contribution.x_post_status='failed'; db.session.commit(); return False
+
 # Seasonal appearance is automatic by default. Set SITE_THEME=auto or a supported
 # theme name to pin/override the site-wide appearance.
 SUPPORTED_SITE_THEMES = {'winter', 'spring', 'summer', 'autumn', 'halloween', 'christmas', 'valentines', 'easter'}
@@ -119,6 +184,8 @@ def get_active_site_theme():
     if month in (6, 7, 8): return 'summer'
     return 'autumn'
 BASE_URL = (os.getenv('SITE_URL') or os.getenv('BASE_URL') or 'https://arcticsender.com').rstrip('/')
+if not X_REDIRECT_URI:
+    X_REDIRECT_URI = f'{BASE_URL}/integrations/x/callback'
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
@@ -175,6 +242,10 @@ ADMIN_MAX_ATTEMPTS = max(5, int(os.getenv('ADMIN_MAX_ATTEMPTS', '20')))
 ADMIN_WINDOW_SECONDS = max(60, int(os.getenv('ADMIN_WINDOW_SECONDS', '600')))
 SECURITY_HEADERS_ENABLED = os.getenv('SECURITY_HEADERS_ENABLED', 'true').lower() == 'true'
 
+SENTRY_DSN = (os.getenv('SENTRY_DSN') or '').strip()
+if SENTRY_DSN and sentry_sdk:
+    sentry_sdk.init(dsn=SENTRY_DSN, integrations=[FlaskIntegration()], traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.05')), send_default_pii=False)
+
 if STRIPE_SECRET_KEY and stripe:
     stripe.api_key = STRIPE_SECRET_KEY
 
@@ -200,19 +271,15 @@ def validate_production_config():
         missing.append('STRIPE_WEBHOOK_SECRET')
     if not BASE_URL.startswith('https://'):
         missing.append('BASE_URL must be https:// in production')
+    if not os.getenv('DATABASE_URL', '').startswith(('postgres://', 'postgresql://', 'postgresql+')):
+        missing.append('DATABASE_URL must point to persistent PostgreSQL in production')
     if missing:
         raise RuntimeError('Production config incomplete: ' + ', '.join(missing))
 
 
 validate_production_config()
 
-SUPPORTED_CURRENCIES = {
-    'usd': {'label': 'USD $', 'symbol': '$', 'rate': Decimal('1.00')},
-    'cad': {'label': 'CAD C$', 'symbol': 'C$', 'rate': Decimal('1.37')},
-    'eur': {'label': 'EUR €', 'symbol': '€', 'rate': Decimal('0.92')},
-    'gbp': {'label': 'GBP £', 'symbol': '£', 'rate': Decimal('0.79')},
-    'aud': {'label': 'AUD A$', 'symbol': 'A$', 'rate': Decimal('1.52')},
-}
+SUPPORTED_CURRENCIES = {'usd': {'label': 'USD', 'symbol': '$', 'rate': Decimal('1.00')}}
 
 
 class User(db.Model):
@@ -225,6 +292,12 @@ class User(db.Model):
     avatar_url = db.Column(db.String(300), default='')
     banner_url = db.Column(db.String(300), default='')
     socials = db.Column(db.String(500), default='')
+    x_user_id = db.Column(db.String(40), default='')
+    x_username = db.Column(db.String(80), default='')
+    x_access_token_enc = db.Column(db.Text, default='')
+    x_refresh_token_enc = db.Column(db.Text, default='')
+    x_token_expires_at = db.Column(db.DateTime, nullable=True)
+    x_auto_post = db.Column(db.Boolean, nullable=False, default=False)
     stripe_account_id = db.Column(db.String(100), default='')
     stripe_onboarding_complete = db.Column(db.Boolean, default=False)
     stripe_charges_enabled = db.Column(db.Boolean, default=False)
@@ -397,7 +470,7 @@ class Contribution(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     item_id = db.Column(db.Integer, db.ForeignKey('wishlist_item.id'), nullable=True)
-    support_type = db.Column(db.String(20), nullable=False, default='custom')  # custom, single, goal
+    support_type = db.Column(db.String(20), nullable=False, default='single')  # single or goal
     supporter_name = db.Column(db.String(80), default='Anonymous')
     supporter_email = db.Column(db.String(140), default='')
     message = db.Column(db.Text, default='')
@@ -411,6 +484,8 @@ class Contribution(db.Model):
     platform_fee_cents = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     paid_at = db.Column(db.DateTime, nullable=True)
+    x_post_status = db.Column(db.String(20), nullable=False, default='not_sent')
+    x_posted_at = db.Column(db.DateTime, nullable=True)
 
     creator = db.relationship('User', backref='contributions')
     item = db.relationship('WishlistItem', backref='contributions')
@@ -467,24 +542,31 @@ class PasswordResetToken(db.Model):
         return self.used_at is None and self.expires_at >= datetime.now(UTC).replace(tzinfo=None)
 
 
+def site_setting_enabled(key, default=True):
+    try:
+        setting = SiteSetting.query.filter_by(key=key).first()
+        if not setting:
+            return default
+        return str(setting.value).strip().lower() in {'1', 'true', 'yes', 'on'}
+    except Exception:
+        return default
+
+
 def money(cents):
-    return f"${cents / 100:,.2f}"
+    return f"${cents / 100:,.2f} USD"
 
 
 def display_money(cents, currency='usd'):
-    meta = SUPPORTED_CURRENCIES.get((currency or 'usd').lower(), SUPPORTED_CURRENCIES['usd'])
-    return f"{meta['symbol']}{cents / 100:,.2f} {currency.upper()}"
+    return f"${cents / 100:,.2f} USD"
 
 
 def normalize_currency(value):
-    value = (value or 'usd').lower().strip()
-    return value if value in SUPPORTED_CURRENCIES else 'usd'
+    return 'usd'
 
 
 def convert_usd_to_currency_cents(usd_cents, currency):
     currency = normalize_currency(currency)
-    rate = SUPPORTED_CURRENCIES[currency]['rate']
-    return max(1, int((Decimal(usd_cents) * rate).quantize(Decimal('1'), rounding=ROUND_HALF_UP)))
+    return max(1, int(usd_cents))
 
 
 def platform_fee_for_cents(amount_cents):
@@ -747,20 +829,8 @@ def cart_entries_for_creator(creator):
                 'image_url': item.image_url or default_gift_image_url(),
                 'description': (item.description or '').strip(),
             })
-        elif entry.get('kind') == 'custom':
-            if amount_cents < MIN_GIFT_CENTS:
-                changed = True
-                continue
-            entries.append({
-                'idx': idx,
-                'kind': 'custom',
-                'item': None,
-                'title': 'Custom cash gift',
-                'type_label': 'Custom amount',
-                'amount_cents': amount_cents,
-                'image_url': default_gift_image_url(),
-                'description': f'A direct cash gift for {creator.display_name}.',
-            })
+        else:
+            changed = True  # purge legacy custom-amount cart entries
     if changed:
         cart['items'] = [cart['items'][e['idx']] for e in entries]
         save_cart(cart)
@@ -980,6 +1050,9 @@ def inject_globals():
         'small_cashout_fee_cents': SMALL_CASHOUT_FEE_CENTS,
         'min_gift_cents': MIN_GIFT_CENTS,
         'supported_currencies': SUPPORTED_CURRENCIES,
+        'x_integration_ready': bool(X_CLIENT_ID and x_fernet()),
+        'sentry_configured': bool(SENTRY_DSN and sentry_sdk),
+        'site_setting_enabled': site_setting_enabled,
         'enable_manual_stripe_account_entry': ENABLE_MANUAL_STRIPE_ACCOUNT_ENTRY,
         'display_money': display_money,
         'cart_count': cart_count(),
@@ -1459,7 +1532,7 @@ def send_welcome_email(user):
 
 def send_gift_emails(contribution):
     creator = contribution.creator
-    item_title_raw = contribution.item.title if contribution.item else 'Custom gift'
+    item_title_raw = contribution.item.title if contribution.item else 'Gift'
     item_title = escape(item_title_raw)
     amount = money(contribution.amount_cents)
     is_named = contribution.supporter_name and contribution.supporter_name != 'Anonymous'
@@ -1774,6 +1847,8 @@ def credit_contribution(contribution, commit=True, send_email=True):
         mongo_backup_model(contribution.item)
     if send_email:
         send_gift_emails(contribution)
+    if commit:
+        post_paid_gift_to_x(contribution)
 
 
 def credit_order(order):
@@ -1788,6 +1863,7 @@ def credit_order(order):
     for contribution in order.contributions:
         mongo_backup_model(contribution)
         send_gift_emails(contribution)
+        post_paid_gift_to_x(contribution)
     mongo_backup_model(order.creator)
 
 
@@ -1934,7 +2010,6 @@ def sitemap_xml():
     for user in User.query.filter_by(is_suspended=False).order_by(User.created_at.desc()).limit(500).all():
         urls.append((f"{BASE_URL}{url_for('profile', username=user.username)}", 'daily', '0.9'))
         urls.append((f"{BASE_URL}{url_for('public_leaderboard', username=user.username)}", 'daily', '0.7'))
-        urls.append((f"{BASE_URL}{url_for('donate', username=user.username)}", 'weekly', '0.7'))
     for item in item_order_query(WishlistItem.query.filter_by(is_active=True)).limit(1000).all():
         urls.append((f"{BASE_URL}{url_for('support_item', item_id=item.id)}", 'daily', '0.8'))
     rows = []
@@ -1951,6 +2026,9 @@ def home():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    if not site_setting_enabled('registration_enabled', True):
+        flash('New account registration is temporarily paused. Please check back soon.', 'warning')
+        return redirect(url_for('home'))
     if request.method == 'POST':
         username = slugify_username(request.form.get('username', ''))
         display_name = request.form.get('display_name', '').strip()[:80]
@@ -2285,7 +2363,7 @@ def notification_dismiss(notification_id):
 def dashboard():
     user = current_user()
     items = item_order_query(WishlistItem.query.filter_by(creator_id=user.id)).all()
-    contributions = Contribution.query.filter_by(creator_id=user.id).order_by(Contribution.created_at.desc()).limit(30).all()
+    contributions = Contribution.query.filter_by(creator_id=user.id, status='paid').order_by(Contribution.paid_at.desc(), Contribution.created_at.desc()).limit(30).all()
     cashouts = CashoutRequest.query.filter_by(creator_id=user.id).order_by(CashoutRequest.created_at.desc()).limit(10).all()
     return render_template('dashboard.html', items=items, contributions=contributions, cashouts=cashouts)
 
@@ -2295,8 +2373,7 @@ def dashboard():
 def creator_analytics():
     user = current_user()
     paid = Contribution.query.filter_by(creator_id=user.id, status='paid').all()
-    pending = Contribution.query.filter_by(creator_id=user.id, status='pending').all()
-    recent = Contribution.query.filter_by(creator_id=user.id).order_by(Contribution.created_at.desc()).limit(12).all()
+    recent = Contribution.query.filter_by(creator_id=user.id, status='paid').order_by(Contribution.paid_at.desc(), Contribution.created_at.desc()).limit(12).all()
     now = datetime.now(UTC).replace(tzinfo=None)
     cutoff = now - timedelta(days=30)
     recent_paid = [c for c in paid if (c.paid_at or c.created_at) and (c.paid_at or c.created_at) >= cutoff]
@@ -2307,9 +2384,8 @@ def creator_analytics():
     analytics = {
         'lifetime_cents': sum(c.amount_cents for c in paid),
         'last30_cents': sum(c.amount_cents for c in recent_paid),
-        'pending_cents': sum(c.amount_cents for c in pending),
         'fees_cents': sum(c.platform_fee_cents or 0 for c in paid),
-        'paid_count': len(paid), 'pending_count': len(pending),
+        'paid_count': len(paid),
         'average_cents': int(sum(c.amount_cents for c in paid) / len(paid)) if paid else 0,
         'daily': daily,
     }
@@ -2341,10 +2417,6 @@ def wishlist_reorder():
         mongo_backup_model(item)
     return jsonify({'ok': True})
 
-
-@app.route('/premium')
-def premium():
-    return render_template('premium.html', premium_interest=bool(current_user() and current_user().is_creator))
 
 
 @app.route('/profile-settings', methods=['GET', 'POST'])
@@ -2414,6 +2486,65 @@ def settings():
     stripe_config = stripe_config_status()
     return render_template('settings.html', stripe_status=stripe_status, stripe_config=stripe_config)
 
+
+
+
+@app.route('/integrations/x/connect')
+@login_required
+def x_connect():
+    if not X_CLIENT_ID or not x_fernet():
+        flash('X connection is not configured. Add X_CLIENT_ID and use a strong SECRET_KEY, then redeploy.', 'warning')
+        return redirect(url_for('settings'))
+    verifier=secrets.token_urlsafe(48); state=secrets.token_urlsafe(24)
+    challenge=__import__('base64').urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')
+    session['x_oauth_state']=state; session['x_oauth_verifier']=verifier
+    params={'response_type':'code','client_id':X_CLIENT_ID,'redirect_uri':X_REDIRECT_URI,'scope':'tweet.read tweet.write users.read offline.access','state':state,'code_challenge':challenge,'code_challenge_method':'S256'}
+    return redirect('https://twitter.com/i/oauth2/authorize?'+urlencode(params))
+
+@app.route('/integrations/x/callback')
+@login_required
+def x_callback():
+    if request.args.get('error') or request.args.get('state') != session.pop('x_oauth_state',None):
+        session.pop('x_oauth_verifier',None); flash('X authorization was cancelled or could not be verified.', 'danger'); return redirect(url_for('settings'))
+    verifier=session.pop('x_oauth_verifier',None); code=request.args.get('code','')
+    if not verifier or not code: flash('X authorization response was incomplete.', 'danger'); return redirect(url_for('settings'))
+    try:
+        data={'grant_type':'authorization_code','code':code,'redirect_uri':X_REDIRECT_URI,'code_verifier':verifier,'client_id':X_CLIENT_ID}
+        auth=(X_CLIENT_ID,X_CLIENT_SECRET) if X_CLIENT_SECRET else None
+        token_response=requests.post('https://api.x.com/2/oauth2/token',data=data,auth=auth,timeout=15); token_response.raise_for_status(); token=token_response.json()
+        me=x_api_request('GET','users/me?user.fields=username',token['access_token'])['data']
+        user=current_user(); user.x_user_id=str(me['id']); user.x_username=me.get('username','')
+        user.x_access_token_enc=encrypt_x_token(token['access_token']); user.x_refresh_token_enc=encrypt_x_token(token.get('refresh_token',''))
+        user.x_token_expires_at=datetime.now(UTC).replace(tzinfo=None)+timedelta(seconds=int(token.get('expires_in',7200)))
+        db.session.commit(); mongo_backup_model(user); flash(f'Connected X account @{user.x_username}.', 'success')
+    except Exception:
+        db.session.rollback(); app.logger.exception('X OAuth callback failed'); flash('Could not connect X. Check the X app callback URL, client credentials, and API access.', 'danger')
+    return redirect(url_for('settings'))
+
+@app.route('/integrations/x/retry-failed', methods=['POST'])
+@login_required
+def x_retry_failed():
+    user = current_user()
+    if not user.x_access_token_enc:
+        flash('Connect an X account first.', 'warning')
+        return redirect(url_for('settings') + '#x-integration')
+    failed = Contribution.query.filter_by(creator_id=user.id, status='paid', x_post_status='failed').order_by(Contribution.paid_at.desc()).limit(20).all()
+    sent = sum(1 for contribution in failed if post_paid_gift_to_x(contribution))
+    flash(f'Retried {len(failed)} failed posts; {sent} posted successfully.', 'success' if sent else 'info')
+    return redirect(url_for('settings') + '#x-integration')
+
+
+@app.route('/integrations/x/settings',methods=['POST'])
+@login_required
+def x_settings():
+    user=current_user()
+    if request.form.get('action')=='disconnect':
+        user.x_user_id=''; user.x_username=''; user.x_access_token_enc=''; user.x_refresh_token_enc=''; user.x_token_expires_at=None; user.x_auto_post=False
+        flash('X account disconnected.', 'success')
+    else:
+        user.x_auto_post=bool(user.x_access_token_enc) and any(v == '1' for v in request.form.getlist('x_auto_post'))
+        flash('X auto-post preference saved.', 'success')
+    db.session.commit(); mongo_backup_model(user); return redirect(url_for('settings')+'#x-integration')
 
 @app.route('/account/close', methods=['POST'])
 @login_required
@@ -2704,27 +2835,6 @@ def update_gift_sort(username):
     return redirect(url_for('profile', username=creator.username) + '#wishlist')
 
 
-@app.route('/@<username>/donate', methods=['GET', 'POST'])
-def donate(username):
-    creator = User.query.filter_by(username=username).first_or_404()
-    if request.method == 'POST':
-        amount_cents = cents_from_price(request.form.get('amount', '0'))
-        if amount_cents < MIN_GIFT_CENTS:
-            flash('Minimum custom donation is $1.00 USD.', 'danger')
-            return redirect(url_for('donate', username=creator.username))
-        cart = get_cart()
-        if cart.get('creator_id') and cart.get('creator_id') != creator.id:
-            clear_cart()
-            cart = get_cart()
-            flash('Your cart was reset because gifts can only be checked out for one creator at a time.', 'info')
-        cart['creator_id'] = creator.id
-        cart.setdefault('items', []).append({'kind': 'custom', 'amount_cents': amount_cents})
-        save_cart(cart)
-        flash('Custom donation added to cart.', 'success')
-        return redirect(url_for('cart', username=creator.username))
-    return render_template('donate.html', creator=creator)
-
-
 @app.route('/support/<int:item_id>', methods=['GET', 'POST'])
 def support_item(item_id):
     item = db.session.get(WishlistItem, item_id) or abort(404)
@@ -2785,7 +2895,7 @@ def checkout(username):
         public_name = safe_public_sender(request.form.get('supporter_name', ''))
         supporter_email = request.form.get('supporter_email', '').strip()[:140]
         message = request.form.get('message', '').strip()[:500]
-        currency = normalize_currency(request.form.get('currency', 'usd'))
+        currency = 'usd'
         if total_cents < MIN_GIFT_CENTS:
             flash('Minimum gift amount is $1.00 USD.', 'danger')
             return redirect(url_for('cart', username=creator.username))
@@ -2805,9 +2915,7 @@ def checkout(username):
                 flash('One of the single purchase gifts just sold out. Please review your cart.', 'warning')
                 return redirect(url_for('cart', username=creator.username))
         fee_cents = checkout_fee_for_total_cents(total_cents)
-        charged_items_total = sum(convert_usd_to_currency_cents(e['amount_cents'], currency) for e in entries)
-        charged_fee_cents = convert_usd_to_currency_cents(fee_cents, currency) if fee_cents else 0
-        charged_total = charged_items_total + charged_fee_cents
+        charged_total = total_cents + fee_cents
         order = CheckoutOrder(
             token=secrets.token_urlsafe(18),
             creator_id=creator.id,
@@ -2822,12 +2930,12 @@ def checkout(username):
         db.session.add(order)
         db.session.flush()
         for e in entries:
-            charged_amount = convert_usd_to_currency_cents(e['amount_cents'], currency)
+            charged_amount = e['amount_cents']
             contribution = Contribution(
                 creator_id=creator.id,
                 item_id=e['item'].id if e.get('item') else None,
                 order_id=order.id,
-                support_type=e['item'].gift_type if e.get('item') else 'custom',
+                support_type=e['item'].gift_type if e.get('item') else 'single',
                 supporter_name=public_name,
                 supporter_email=supporter_email,
                 message=message,
@@ -3110,6 +3218,10 @@ def admin():
     cashouts = CashoutRequest.query.order_by(CashoutRequest.created_at.desc()).limit(80).all()
     totals = {
         'paid_cents': sum(c.amount_cents for c in Contribution.query.filter_by(status='paid').all()),
+        'total_users': User.query.count(),
+        'creator_users': User.query.filter_by(is_creator=True).count(),
+        'x_connected_users': User.query.filter(User.x_user_id != '').count(),
+        'x_auto_post_users': User.query.filter_by(x_auto_post=True).count(),
         'pending_cents': sum(c.amount_cents for c in Contribution.query.filter_by(status='pending').all()),
         'verified_users': User.query.filter_by(email_verified=True).count(),
         'stripe_ready': User.query.filter_by(stripe_payouts_enabled=True).count(),
@@ -3196,6 +3308,15 @@ def admin_user_action(user_id):
         user.is_admin = False
         user.admin_role = 'moderator'
         flash('Admin access removed.', 'info')
+    elif action == 'disconnect_x':
+        require_admin_permission('users')
+        user.x_user_id = ''
+        user.x_username = ''
+        user.x_access_token_enc = ''
+        user.x_refresh_token_enc = ''
+        user.x_token_expires_at = None
+        user.x_auto_post = False
+        flash('Creator X integration disconnected.', 'success')
     elif action == 'reset_password':
         temp = secrets.token_urlsafe(14) + 'A1!'
         user.password_hash = generate_password_hash(temp)
@@ -3245,13 +3366,15 @@ def admin_save_settings():
         days = min(90, max(1, int(request.form.get('trusted_device_days', '30'))))
     except ValueError:
         abort(400)
-    for key, value in [('site_theme', theme), ('login_otp_required', otp_required), ('trusted_device_days', str(days))]:
+    registration_enabled = 'true' if request.form.get('registration_enabled') == 'on' else 'false'
+    x_auto_post_enabled = 'true' if request.form.get('x_auto_post_enabled') == 'on' else 'false'
+    for key, value in [('site_theme', theme), ('login_otp_required', otp_required), ('trusted_device_days', str(days)), ('registration_enabled', registration_enabled), ('x_auto_post_enabled', x_auto_post_enabled)]:
         setting = SiteSetting.query.filter_by(key=key).first()
         if not setting:
             db.session.add(SiteSetting(key=key, value=value))
         else:
             setting.value = value
-    write_admin_audit('settings.security', 'Login security', f'Login email verification: {otp_required}; trusted devices: {days} days')
+    write_admin_audit('settings.platform', 'Platform controls', f'Registration: {registration_enabled}; X auto-post: {x_auto_post_enabled}; OTP: {otp_required}; trusted devices: {days} days')
     db.session.commit()
     flash('Site and security settings saved.', 'success')
     return redirect(url_for('admin'))
@@ -3402,6 +3525,14 @@ def migrate_sqlite_columns():
                 conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS profile_accent VARCHAR(20) NOT NULL DEFAULT 'ice'")
                 conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS compact_dashboard BOOLEAN NOT NULL DEFAULT FALSE")
                 conn.exec_driver_sql("ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+                for col, sql in {
+                    'x_user_id': "VARCHAR(40) DEFAULT ''", 'x_username': "VARCHAR(80) DEFAULT ''",
+                    'x_access_token_enc': "TEXT DEFAULT ''", 'x_refresh_token_enc': "TEXT DEFAULT ''",
+                    'x_token_expires_at': 'TIMESTAMP', 'x_auto_post': 'BOOLEAN NOT NULL DEFAULT FALSE'
+                }.items():
+                    conn.exec_driver_sql(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col} {sql}')
+                conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN IF NOT EXISTS x_post_status VARCHAR(20) NOT NULL DEFAULT 'not_sent'")
+                conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN IF NOT EXISTS x_posted_at TIMESTAMP")
         except Exception:
             app.logger.exception('Could not ensure admin_role column on the active database')
         return
@@ -3437,6 +3568,12 @@ def migrate_sqlite_columns():
                 'profile_accent': "ALTER TABLE user ADD COLUMN profile_accent VARCHAR(20) DEFAULT 'ice' NOT NULL",
                 'compact_dashboard': "ALTER TABLE user ADD COLUMN compact_dashboard BOOLEAN DEFAULT 0 NOT NULL",
                 'notifications_enabled': "ALTER TABLE user ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1 NOT NULL",
+                'x_user_id': "ALTER TABLE user ADD COLUMN x_user_id VARCHAR(40) DEFAULT ''",
+                'x_username': "ALTER TABLE user ADD COLUMN x_username VARCHAR(80) DEFAULT ''",
+                'x_access_token_enc': "ALTER TABLE user ADD COLUMN x_access_token_enc TEXT DEFAULT ''",
+                'x_refresh_token_enc': "ALTER TABLE user ADD COLUMN x_refresh_token_enc TEXT DEFAULT ''",
+                'x_token_expires_at': "ALTER TABLE user ADD COLUMN x_token_expires_at DATETIME",
+                'x_auto_post': "ALTER TABLE user ADD COLUMN x_auto_post BOOLEAN DEFAULT 0 NOT NULL",
             }
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:
@@ -3454,6 +3591,8 @@ def migrate_sqlite_columns():
                 conn.exec_driver_sql("ALTER TABLE checkout_order ADD COLUMN platform_fee_cents INTEGER DEFAULT 0 NOT NULL")
         if 'contribution' in tables:
             columns = [row[1] for row in conn.exec_driver_sql('PRAGMA table_info(contribution)').fetchall()]
+            if 'x_post_status' not in columns: conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN x_post_status VARCHAR(20) DEFAULT 'not_sent' NOT NULL")
+            if 'x_posted_at' not in columns: conn.exec_driver_sql('ALTER TABLE contribution ADD COLUMN x_posted_at DATETIME')
             if 'currency' not in columns:
                 conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN currency VARCHAR(10) DEFAULT 'usd'")
             if 'charged_amount_cents' not in columns:

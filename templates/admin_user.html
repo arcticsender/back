@@ -19,6 +19,7 @@
     <div class="admin-kv"><span>Status</span><b>{{ 'Suspended' if managed_user.is_suspended else 'Active' }}</b></div>
     <div class="admin-kv"><span>Joined</span><b>{{ managed_user.created_at.strftime('%Y-%m-%d') }}</b></div>
     <div class="admin-kv"><span>Last login</span><b>{% if managed_user.last_login_at %}{{ managed_user.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}Never{% endif %}</b></div>
+    <div class="admin-kv"><span>X account</span><b>{% if managed_user.x_user_id %}@{{ managed_user.x_username }}{% if managed_user.x_auto_post %} · Auto-post on{% else %} · Auto-post off{% endif %}{% else %}Not connected{% endif %}</b></div>
     <div class="safe-box"><b>Passwords are not viewable.</b><br><span class="muted">For security, ArcticSender stores password hashes only. Use “Reset password” to generate a new temporary password and email it to the creator.</span></div>
   </div>
 
@@ -45,6 +46,7 @@
         {% if managed_user.is_admin %}<button class="ghost" name="action" value="remove_admin">Remove admin access</button>{% else %}<button class="ghost" name="action" value="make_admin">Grant moderator access</button>{% endif %}
       {% endif %}
       <button class="ghost" name="action" value="resend_welcome">Send welcome email</button>
+      {% if managed_user.x_user_id and current_user.admin_role in ['owner', 'admin'] %}<button class="ghost danger" name="action" value="disconnect_x" onclick="return confirm('Disconnect this creator’s X account and remove its saved tokens?')">Disconnect X account</button>{% endif %}
       <button class="ghost danger" name="action" value="revoke_devices" onclick="return confirm('Revoke all trusted devices for this user?')">Revoke trusted devices</button>
       {% if current_user.admin_role in ['owner', 'admin'] %}<button class="ghost" name="action" value="reset_password" onclick="return confirm('Reset this user password and email a temporary password?')">Reset password</button>{% endif %}
     </div>

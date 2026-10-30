@@ -13,7 +13,7 @@
         <span class="item-image-placeholder">🎁</span>
       {% endif %}
     </span>
-    <span class="gift-chip">{{ item.type_label }}</span>
+    {% if item.gift_type == 'goal' %}<span class="gift-chip">Crowdfund</span>{% endif %}
   </a>
   <div class="item-body">
     <div class="item-top"><span>{{ money(item.price_cents) }}</span>{% if item.gift_type == 'single' %}{% if is_owner_view %}<span>{{ item.remaining_stock }} left</span>{% endif %}{% else %}<span>{{ item.progress }}%</span>{% endif %}</div>
@@ -79,7 +79,7 @@
       {% else %}
         <span class="item-image-placeholder">🎁</span>
       {% endif %}
-      <span class="gift-chip">{{ item.type_label }}</span>
+      {% if item.gift_type == 'goal' %}<span class="gift-chip">Crowdfund</span>{% endif %}
     </div>
     <form class="gift-modal-content" method="post" action="{{ url_for('support_item', item_id=item.id) }}">
       <div class="gift-modal-head">

@@ -5,9 +5,9 @@
 <section class="section analytics-grid">
 <div class="stat-card"><span>Lifetime gifts</span><b>{{ money(analytics.lifetime_cents) }}</b><small>{{ analytics.paid_count }} successful contributions</small></div>
 <div class="stat-card"><span>Last 30 days</span><b>{{ money(analytics.last30_cents) }}</b><small>Paid contribution volume</small></div>
-<div class="stat-card"><span>Pending</span><b>{{ money(analytics.pending_cents) }}</b><small>{{ analytics.pending_count }} awaiting payment</small></div>
+
 <div class="stat-card"><span>Average gift</span><b>{{ money(analytics.average_cents) }}</b><small>Platform fees: {{ money(analytics.fees_cents) }}</small></div>
 </section>
 <section class="section panel analytics-panel"><div class="section-head"><h2>Last 30 days</h2><span>Daily paid volume</span></div>{% if analytics.daily %}<div class="analytics-bars">{% for day, amount in analytics.daily.items() %}<div class="analytics-bar-col"><div class="analytics-bar" style="height:{{ [12, (amount / ([analytics.daily.values()|max, 1]|max) * 100)]|max }}%" title="{{ day }} · {{ money(amount) }}"></div><small>{{ day }}</small></div>{% endfor %}</div>{% else %}<p class="muted">Once you receive paid gifts, your activity will appear here.</p>{% endif %}</section>
-<section class="section panel"><div class="section-head"><h2>Recent activity</h2></div>{% for c in recent %}<div class="list-row"><b>{{ c.supporter_name or 'Anonymous' }}</b><span>{{ money(c.amount_cents) }} · {{ c.status }} · {{ c.created_at.strftime('%b %d, %Y') if c.created_at else '' }}</span></div>{% else %}<p class="muted">No contributions yet.</p>{% endfor %}</section>
+<section class="section panel"><div class="section-head"><h2>Recent activity</h2></div>{% for c in recent %}<div class="list-row"><b>{{ c.supporter_name or 'Anonymous' }}</b><span>{{ money(c.amount_cents) }} · Paid {{ (c.paid_at or c.created_at).strftime('%b %d, %Y') if (c.paid_at or c.created_at) else '' }}</span></div>{% else %}<p class="muted">No contributions yet.</p>{% endfor %}</section>
 {% endblock %}

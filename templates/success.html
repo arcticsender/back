@@ -17,7 +17,7 @@
       {% if order %}<span>Public sender</span><b>{{ order.supporter_name }}</b>{% endif %}
     </div>
     <div class="panel list receipt-list">
-      {% for c in contributions %}<div class="list-row"><b>{% if c.item %}{{ c.item.title }}{% else %}Custom donation{% endif %}</b><span>{{ money(c.amount_cents) }}</span></div>{% endfor %}
+      {% for c in contributions %}<div class="list-row"><b>{% if c.item %}{{ c.item.title }}{% else %}Gift{% endif %}</b><span>{{ money(c.amount_cents) }}</span></div>{% endfor %}
     </div>
     <div class="hero-actions center-actions"><a class="btn" href="{{ url_for('profile', username=creator.username) }}">Back to creator</a><a class="btn ghost" href="{{ url_for('home') }}">Home</a></div>
   </div>

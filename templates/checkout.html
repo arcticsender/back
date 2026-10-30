@@ -5,7 +5,7 @@
   <div>
     <div class="pill">Secure checkout</div>
     <h1>Complete your gift</h1>
-    <p>A quick, secure checkout. Review your order and enter your details below.</p>
+    <p>Review your gift, add an optional note, and pay securely in USD.</p>
   </div>
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Back to cart</a></div>
 </section>
@@ -27,18 +27,17 @@
 
     <div class="checkout-flow-divider"></div>
     <div class="checkout-flow-section">
-      <div class="checkout-flow-section-head"><div><span class="checkout-step">02</span><div><h2>Your details</h2><p>Where we’ll send your receipt</p></div></div></div>
+      <div class="checkout-flow-section-head"><div><span class="checkout-step">02</span><div><h2>Your details</h2><p>Your receipt details</p></div></div></div>
       <div class="checkout-fields-grid">
         <label>Display name <span class="field-optional">Optional</span><input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
         <label>Email address <span class="field-private">Private</span><input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
-        <label class="checkout-currency-field">Payment currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select><small class="currency-note muted">Creator balances are credited in USD. <a class="info-link" href="{{ url_for('faq') }}#faq-currency" data-tip="Stripe shows the final payment amount before you pay." aria-label="Learn more about currency">Learn more</a></small></label>
         <label class="checkout-message-field">Message <span class="field-optional">Optional</span><textarea name="message" rows="3" maxlength="500" placeholder="Write a nice note..."></textarea></label>
       </div>
     </div>
 
     <div class="checkout-flow-divider"></div>
     <div class="checkout-flow-section checkout-payment-section">
-      <div class="checkout-flow-section-head"><div><span class="checkout-step">03</span><div><h2>Payment summary</h2><p>Everything is shown before you pay</p></div></div></div>
+      <div class="checkout-flow-section-head"><div><span class="checkout-step">03</span><div><h2>Payment summary</h2><p>All amounts are in USD</p></div></div></div>
       <div class="checkout-money-lines checkout-money-lines-flow">
         <div class="money-line"><span>Subtotal</span><b>{{ money(total_cents) }}</b></div>
         <div class="money-line"><span>Fees</span><b>{{ money(fee_cents) }}</b></div>

@@ -111,6 +111,27 @@
     </form>
   {% endif %}
 
+
+  <section class="panel form wide frost-card" id="x-integration">
+    <div class="pill">Social integration</div>
+    <h2>Connect X</h2>
+    <p class="muted">Connect your X account and optionally publish an automatic thank-you post after a contribution is successfully paid. Posts never include the sender’s name or email.</p>
+    {% if current_user.x_user_id %}
+      <div class="payout-status-panel"><b>Connected as @{{ current_user.x_username }}</b><p class="muted">X account linked successfully.</p></div>
+      <form method="post" action="{{ url_for('x_settings') }}" class="settings-actions-row">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="preferences">
+        <input type="hidden" name="x_auto_post" value="0">
+        <label class="check clean-toggle-row"><input type="checkbox" name="x_auto_post" value="1" {% if current_user.x_auto_post %}checked{% endif %}> Automatically post when I receive a paid gift</label>
+        <button class="btn full">Save X preferences</button>
+      </form>
+      <form method="post" action="{{ url_for('x_retry_failed') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn ghost full">Retry failed X posts</button></form>
+      <form method="post" action="{{ url_for('x_settings') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="disconnect"><button class="btn ghost danger-lite full">Disconnect X</button></form>
+    {% else %}
+      <p class="muted">{% if x_integration_ready %}X account connection is ready.{% else %}X connection is not configured by the site administrator yet.{% endif %}</p>
+      <a class="btn full {% if not x_integration_ready %}disabled{% endif %}" href="{{ url_for('x_connect') }}" {% if not x_integration_ready %}aria-disabled="true"{% endif %}>Connect X account</a>
+    {% endif %}
+  </section>
+
   <form class="panel form wide frost-card danger-zone" method="post" action="{{ url_for('close_account') }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <div class="pill">Account</div>
