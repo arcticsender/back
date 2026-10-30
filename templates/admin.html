@@ -16,6 +16,10 @@
   <div class="stat-card"><span>Paid volume</span><b>{{ money(totals.paid_cents) }}</b><small>{{ money(totals.pending_cents) }} pending</small></div>
   <div class="stat-card"><span>Stripe ready</span><b>{{ totals.stripe_ready }}</b><small>Creators with payments + payouts enabled</small></div>
   <div class="stat-card"><span>Cash gifts</span><b>{{ items|length }}</b><small>Wishlist/cash gift items</small></div>
+  <div class="stat-card"><span>Platform fees</span><b>{{ money(totals.platform_fees_cents) }}</b><small>Recorded on paid gifts</small></div>
+  <div class="stat-card"><span>Refunded volume</span><b>{{ money(totals.refunds_cents) }}</b><small>Refund-status contributions</small></div>
+  <div class="stat-card"><span>Successful gifts</span><b>{{ totals.paid_count }}</b><small>Completed contributions</small></div>
+  <div class="stat-card"><span>Active users</span><b>{{ totals.active_users_30d }}</b><small>Seen in the last 30 days</small></div>
 </section>
 
 <section class="section split-cards admin-health compact-section">

@@ -221,3 +221,43 @@ document.addEventListener('click', async (event) => {
     window.prompt('Copy your creator page link:', value);
   }
 });
+
+
+// Accessible drag-and-drop wishlist ordering with server-side ownership validation.
+(() => {
+  const table = document.querySelector('[data-wishlist-sort]');
+  if (!table) return;
+  let dragged = null;
+  const rows = () => [...table.querySelectorAll('tr[data-item-id]')];
+  rows().forEach(row => {
+    row.addEventListener('dragstart', event => { dragged = row; row.classList.add('is-dragging'); event.dataTransfer.effectAllowed = 'move'; });
+    row.addEventListener('dragend', async () => {
+      row.classList.remove('is-dragging');
+      if (!dragged) return;
+      dragged = null;
+      const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+      const ids = rows().map(item => Number(item.dataset.itemId));
+      try {
+        const response = await fetch('/wishlist/reorder', { method: 'POST', headers: {'Content-Type':'application/json','X-CSRF-Token':token}, body: JSON.stringify({item_ids: ids}) });
+        if (!response.ok) throw new Error('Save failed');
+        table.closest('.table')?.classList.add('order-saved');
+      } catch (_) { window.location.reload(); }
+    });
+    row.addEventListener('dragover', event => {
+      if (!dragged || dragged === row) return;
+      event.preventDefault();
+      const rect = row.getBoundingClientRect();
+      const after = event.clientY > rect.top + rect.height / 2;
+      row.parentNode.insertBefore(dragged, after ? row.nextSibling : row);
+    });
+    row.addEventListener('keydown', event => {
+      if (!['ArrowUp','ArrowDown'].includes(event.key)) return;
+      const siblings = rows(); const index = siblings.indexOf(row);
+      const target = siblings[index + (event.key === 'ArrowUp' ? -1 : 1)];
+      if (!target) return; event.preventDefault();
+      row.parentNode.insertBefore(row, event.key === 'ArrowUp' ? target : target.nextSibling);
+      row.dispatchEvent(new Event('dragend'));
+    });
+    row.tabIndex = 0; row.setAttribute('aria-label', 'Wishlist item. Use arrow keys to reorder.');
+  });
+})();

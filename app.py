@@ -84,6 +84,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = build_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 60 * 60 * 24 * 30
 if os.getenv('SESSION_COOKIE_SECURE', 'true' if os.getenv('APP_ENV', '').lower() == 'production' else 'false').lower() == 'true':
     app.config.update(SESSION_COOKIE_SECURE=True)
 
@@ -957,6 +958,13 @@ def protect_post_requests():
     sent = request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token')
     if not sent or sent != session.get('_csrf_token'):
         abort(403)
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    app.logger.exception('Unhandled application error: %s', error)
+    db.session.rollback()
+    return render_template('error.html', message='Something went wrong. The issue has been logged; please try again.'), 500
 
 
 @app.context_processor
@@ -2282,6 +2290,63 @@ def dashboard():
     return render_template('dashboard.html', items=items, contributions=contributions, cashouts=cashouts)
 
 
+@app.route('/creator/analytics')
+@login_required
+def creator_analytics():
+    user = current_user()
+    paid = Contribution.query.filter_by(creator_id=user.id, status='paid').all()
+    pending = Contribution.query.filter_by(creator_id=user.id, status='pending').all()
+    recent = Contribution.query.filter_by(creator_id=user.id).order_by(Contribution.created_at.desc()).limit(12).all()
+    now = datetime.now(UTC).replace(tzinfo=None)
+    cutoff = now - timedelta(days=30)
+    recent_paid = [c for c in paid if (c.paid_at or c.created_at) and (c.paid_at or c.created_at) >= cutoff]
+    daily = {}
+    for c in recent_paid:
+        key = (c.paid_at or c.created_at).strftime('%b %d')
+        daily[key] = daily.get(key, 0) + c.amount_cents
+    analytics = {
+        'lifetime_cents': sum(c.amount_cents for c in paid),
+        'last30_cents': sum(c.amount_cents for c in recent_paid),
+        'pending_cents': sum(c.amount_cents for c in pending),
+        'fees_cents': sum(c.platform_fee_cents or 0 for c in paid),
+        'paid_count': len(paid), 'pending_count': len(pending),
+        'average_cents': int(sum(c.amount_cents for c in paid) / len(paid)) if paid else 0,
+        'daily': daily,
+    }
+    return render_template('creator_analytics.html', analytics=analytics, recent=recent)
+
+
+@app.route('/wishlist/reorder', methods=['POST'])
+@login_required
+def wishlist_reorder():
+    payload = request.get_json(silent=True) or {}
+    ids = payload.get('item_ids')
+    if not isinstance(ids, list) or len(ids) > 200:
+        return jsonify({'ok': False, 'error': 'Invalid item order.'}), 400
+    try:
+        ids = [int(value) for value in ids]
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Invalid item IDs.'}), 400
+    if len(ids) != len(set(ids)):
+        return jsonify({'ok': False, 'error': 'Duplicate item IDs.'}), 400
+    owned = WishlistItem.query.filter_by(creator_id=current_user().id).all()
+    owned_ids = {item.id for item in owned}
+    if set(ids) != owned_ids:
+        return jsonify({'ok': False, 'error': 'Wishlist changed. Refresh and try again.'}), 409
+    by_id = {item.id: item for item in owned}
+    for position, item_id in enumerate(ids, start=1):
+        by_id[item_id].display_order = position * 10
+    db.session.commit()
+    for item in owned:
+        mongo_backup_model(item)
+    return jsonify({'ok': True})
+
+
+@app.route('/premium')
+def premium():
+    return render_template('premium.html', premium_interest=bool(current_user() and current_user().is_creator))
+
+
 @app.route('/profile-settings', methods=['GET', 'POST'])
 @login_required
 def profile_settings():
@@ -3049,6 +3114,10 @@ def admin():
         'verified_users': User.query.filter_by(email_verified=True).count(),
         'stripe_ready': User.query.filter_by(stripe_payouts_enabled=True).count(),
         'suspended': User.query.filter_by(is_suspended=True).count(),
+        'refunds_cents': sum(c.amount_cents for c in Contribution.query.filter(Contribution.status.in_(['refunded', 'refund', 'partially_refunded'])).all()),
+        'paid_count': Contribution.query.filter_by(status='paid').count(),
+        'active_users_30d': User.query.filter(User.last_seen_at >= datetime.now(UTC).replace(tzinfo=None) - timedelta(days=30)).count(),
+        'platform_fees_cents': sum(c.platform_fee_cents or 0 for c in Contribution.query.filter_by(status='paid').all()),
     }
     logs = AdminAuditLog.query.order_by(AdminAuditLog.created_at.desc()).limit(30).all()
     return render_template('admin.html', users=users, items=items, contributions=contributions, cashouts=cashouts, totals=totals, admin_logs=logs, admin_role=(current_user().admin_role or 'moderator'), theme_preference=(SiteSetting.query.filter_by(key='site_theme').first().value if SiteSetting.query.filter_by(key='site_theme').first() else os.getenv('SITE_THEME', 'auto')), trusted_device_count=TrustedDevice.query.filter(TrustedDevice.expires_at > datetime.now(UTC).replace(tzinfo=None)).count(), otp_required=login_otp_required(), trusted_days=trusted_device_days())
@@ -3423,6 +3492,23 @@ def start_self_ping_thread():
     _self_ping_started = True
     thread = threading.Thread(target=self_ping_loop, daemon=True, name='arcticsender-self-ping')
     thread.start()
+
+
+@app.route('/manifest.webmanifest')
+def pwa_manifest():
+    return jsonify({
+        'name': 'ArcticSender', 'short_name': 'ArcticSender', 'start_url': '/',
+        'display': 'standalone', 'background_color': '#090d18', 'theme_color': '#8b5cf6',
+        'icons': [
+            {'src': url_for('static', filename='img/icon-192.png'), 'sizes': '192x192', 'type': 'image/png'},
+            {'src': url_for('static', filename='img/icon-512.png'), 'sizes': '512x512', 'type': 'image/png'}
+        ]
+    }), 200, {'Content-Type': 'application/manifest+json'}
+
+
+@app.route('/service-worker.js')
+def service_worker():
+    return send_from_directory(BASE_DIR, 'service-worker.js', mimetype='application/javascript')
 
 
 with app.app_context():
