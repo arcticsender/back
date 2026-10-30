@@ -35,13 +35,14 @@
   let width = 0;
   let height = 0;
   let flakes = [];
+  let frame = 0;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function resize() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     const isSmall = width < 720;
-    const count = reduceMotion ? 0 : Math.min(isSmall ? 46 : 104, Math.floor(width / (isSmall ? 18 : 14)));
+    const count = reduceMotion ? 0 : Math.min(isSmall ? 24 : 58, Math.floor(width / (isSmall ? 30 : 24)));
     flakes = Array.from({ length: count }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -67,13 +68,13 @@
       ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       ctx.fill();
     });
-    if (!document.hidden) requestAnimationFrame(draw);
+    if (!document.hidden && !reduceMotion) frame = requestAnimationFrame(draw);
   }
 
   resize();
   window.addEventListener('resize', resize, { passive: true });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) draw(); });
-  draw();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (frame) cancelAnimationFrame(frame); frame = 0; } else if (!reduceMotion && !frame) draw(); });
+  if (!reduceMotion) draw();
 })();
 
 (() => {

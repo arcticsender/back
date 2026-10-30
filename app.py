@@ -86,6 +86,26 @@ if os.getenv('SESSION_COOKIE_SECURE', 'true' if os.getenv('APP_ENV', '').lower()
     app.config.update(SESSION_COOKIE_SECURE=True)
 
 SITE_NAME = os.getenv('SITE_NAME', 'ArcticSender')
+
+# Seasonal appearance is automatic by default. Set SITE_THEME=auto or a supported
+# theme name to pin/override the site-wide appearance.
+SUPPORTED_SITE_THEMES = {'winter', 'spring', 'summer', 'autumn', 'halloween', 'christmas', 'valentines', 'easter'}
+def get_active_site_theme():
+    override = os.getenv('SITE_THEME', 'auto').strip().lower()
+    if override in SUPPORTED_SITE_THEMES:
+        return override
+    if override not in ('', 'auto'):
+        app.logger.warning('Unknown SITE_THEME %r; using automatic seasonal theme.', override)
+    today = datetime.now().date()
+    month, day = today.month, today.day
+    if month == 10: return 'halloween'
+    if month == 12: return 'christmas'
+    if month == 2 and 10 <= day <= 16: return 'valentines'
+    if month in (3, 4) and 15 <= day <= 30: return 'easter'
+    if month in (12, 1, 2): return 'winter'
+    if month in (3, 4, 5): return 'spring'
+    if month in (6, 7, 8): return 'summer'
+    return 'autumn'
 BASE_URL = (os.getenv('SITE_URL') or os.getenv('BASE_URL') or 'http://127.0.0.1:5000').rstrip('/')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
@@ -830,8 +850,15 @@ def apply_security_headers(response):
         response.headers.setdefault('X-Frame-Options', 'DENY')
         response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
         response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+        response.headers.setdefault('Cross-Origin-Opener-Policy', 'same-origin')
+        response.headers.setdefault('Cross-Origin-Resource-Policy', 'same-origin')
+        response.headers.setdefault('X-Permitted-Cross-Domain-Policies', 'none')
         if APP_ENV == 'production' and BASE_URL.startswith('https://'):
             response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    if request.endpoint == 'static':
+        response.headers.setdefault('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400')
+    elif request.method in ('POST', 'PUT', 'PATCH', 'DELETE') or current_user() is not None:
+        response.headers.setdefault('Cache-Control', 'private, no-store')
     return response
 
 
@@ -863,6 +890,7 @@ def inject_globals():
     return {
         'current_user': current_user(),
         'site_name': SITE_NAME,
+        'active_theme': get_active_site_theme(),
         'stripe_publishable_key': STRIPE_PUBLISHABLE_KEY,
         'money': money,
         'min_cashout_cents': MIN_CASHOUT_CENTS,

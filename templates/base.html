@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="{{ url_for('static', filename='img/logo-horizontal.png') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -31,13 +32,14 @@
   </script>
   {% block head_extra %}{% endblock %}
 </head>
-<body>
-  <canvas id="snow-canvas" aria-hidden="true"></canvas>
+<body data-theme="{{ active_theme }}">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  {% if active_theme in ['winter', 'christmas'] %}<canvas id="snow-canvas" aria-hidden="true"></canvas>{% else %}<div id="seasonal-atmosphere" aria-hidden="true"></div>{% endif %}
   <div class="snowfield"></div>
   <div class="bg-orb orb-a"></div>
   <div class="bg-orb orb-b"></div>
   <header class="nav">
-    <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="brand" aria-label="{{ site_name }} home"><img class="brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span class="brand-word"><span>Arctic</span><span>Sender</span></span></a>
+    <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="brand" aria-label="{{ site_name }} home"><img class="brand-logo" src="{{ url_for('static', filename='img/logo-horizontal.png') }}" alt="{{ site_name }}" width="176" height="44" fetchpriority="high"></a>
     <nav class="nav-links desktop-nav-links">
       {% if current_user %}
         <span class="nav-balance">Balance <b>{{ money(current_user.balance_cents) }}</b></span>
@@ -69,7 +71,7 @@
   <div class="mobile-drawer-backdrop" data-close-mobile-menu></div>
   <aside id="mobile-drawer" class="mobile-drawer" aria-hidden="true">
     <div class="drawer-head">
-      <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="drawer-brand"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><span>{{ site_name }}</span></a>
+      <a href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('home') }}{% endif %}" class="drawer-brand"><img src="{{ url_for('static', filename='img/logo-icon-transparent.png') }}" alt="" width="36" height="36"><span>{{ site_name }}</span></a>
       <button class="drawer-close" type="button" aria-label="Close menu" data-close-mobile-menu>×</button>
     </div>
     {% if current_user %}
@@ -93,7 +95,7 @@
     {% endif %}
   </aside>
 
-  <main>
+  <main id="main-content" tabindex="-1">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">
@@ -106,7 +108,7 @@
 
   <footer class="footer">
     <div>
-      <div class="footer-brand"><img src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><b>{{ site_name }}</b></div>
+      <div class="footer-brand"><img src="{{ url_for('static', filename='img/logo-icon-transparent.png') }}" alt="" width="36" height="36"><b>{{ site_name }}</b></div>
       <p>Premium cash gifts, wishlist goals, carts, and creator cashouts.</p>
     </div>
     <div class="footer-links">

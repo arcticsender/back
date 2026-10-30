@@ -1948,3 +1948,29 @@ body.gift-modal-is-open{overflow:hidden!important;}
   .compact-smart-amounts .smart-amount-btn span{font-size:.5rem!important;}
   .compact-smart-amounts .smart-amount-btn b{font-size:.7rem!important;}
 }
+
+
+/* Seasonal design system: branding stays local and independent of user posts. */
+:root { color-scheme:dark; --season-accent:#82dfff; --season-accent-2:#a78bfa; --season-glow:rgba(90,196,255,.16); --season-bg:#071321; }
+body { background-color:var(--season-bg); }
+body[data-theme="winter"],body[data-theme="christmas"] { --ice:#d7f7ff;--blue:#9be7ff;--blue2:#287bb8;--line:rgba(155,231,255,.19);--season-accent:#9be7ff;--season-accent-2:#d7f7ff;--season-glow:rgba(87,205,255,.18);--season-bg:#061522; }
+body[data-theme="spring"],body[data-theme="easter"] { --ice:#d5a7ff;--blue:#9de6c1;--blue2:#5b9f87;--line:rgba(157,230,193,.19);--season-accent:#9de6c1;--season-accent-2:#d5a7ff;--season-glow:rgba(125,226,177,.16);--season-bg:#0b1720; }
+body[data-theme="summer"] { --ice:#ffd27a;--blue:#ffb36b;--blue2:#cc714d;--line:rgba(255,210,122,.19);--season-accent:#ffd27a;--season-accent-2:#ff9d78;--season-glow:rgba(255,184,90,.16);--season-bg:#17140f; }
+body[data-theme="autumn"] { --ice:#f6a66f;--blue:#d97757;--blue2:#8f4a3c;--line:rgba(246,166,111,.19);--season-accent:#f6a66f;--season-accent-2:#d97757;--season-glow:rgba(245,139,84,.17);--season-bg:#17110f; }
+body[data-theme="halloween"] { --ice:#ffbd77;--blue:#ff9b42;--blue2:#8b5cf6;--line:rgba(255,155,66,.2);--season-accent:#ff9b42;--season-accent-2:#b58cff;--season-glow:rgba(255,112,35,.2);--season-bg:#100d19; }
+body[data-theme="valentines"] { --ice:#ffc2d8;--blue:#ff91b8;--blue2:#a56be8;--line:rgba(255,145,184,.2);--season-accent:#ff91b8;--season-accent-2:#c69aff;--season-glow:rgba(255,104,164,.17);--season-bg:#190e19; }
+body::before { content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:radial-gradient(ellipse at 12% 0%,var(--season-glow),transparent 42%),radial-gradient(ellipse at 90% 25%,color-mix(in srgb,var(--season-accent-2) 11%,transparent),transparent 38%); }
+.btn:not(.ghost),.btn-primary,.primary-button { background-image:linear-gradient(135deg,var(--season-accent),var(--season-accent-2)); }
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid var(--season-accent);outline-offset:3px; }
+.skip-link { position:fixed;top:8px;left:8px;z-index:10000;transform:translateY(-160%);padding:12px 16px;border-radius:12px;background:#fff;color:#111;font-weight:800; }
+.skip-link:focus { transform:translateY(0); }
+.brand-logo { width:clamp(138px,15vw,176px);height:44px;object-fit:contain;object-position:left center; }
+.brand { min-width:0; }
+#seasonal-atmosphere { position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.28;overflow:hidden; }
+body[data-theme="halloween"] #seasonal-atmosphere { background:radial-gradient(circle at 8% 18%,rgba(255,128,37,.13),transparent 18%),radial-gradient(circle at 92% 70%,rgba(142,91,255,.12),transparent 22%); }
+body[data-theme="christmas"] #seasonal-atmosphere { background:radial-gradient(circle at 12% 18%,rgba(255,70,90,.1),transparent 18%),radial-gradient(circle at 92% 70%,rgba(75,205,155,.1),transparent 22%); }
+.panel,.frost-card,.stat-card { border-color:color-mix(in srgb,var(--season-accent) 15%,transparent); }
+::selection { background:var(--season-accent);color:#10131a; }
+img { max-width:100%; }
+@media(max-width:760px) { html{-webkit-text-size-adjust:100%;} body{overflow-x:hidden;} .nav{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));} .brand-word{display:none;} .brand-logo{width:142px;height:38px;} .mobile-drawer{padding-bottom:max(24px,env(safe-area-inset-bottom));} main{min-width:0;} .section{padding-left:14px!important;padding-right:14px!important;} .panel,.frost-card{max-width:100%;} input,select,textarea{max-width:100%;font-size:16px;} .footer{gap:22px;padding-left:18px;padding-right:18px;} }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;} #snow-canvas{display:none!important;} }
