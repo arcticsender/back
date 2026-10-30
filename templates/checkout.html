@@ -1,59 +1,53 @@
 {% extends 'base.html' %}
 {% block title %}Checkout for {{ creator.display_name }} | {{ site_name }}{% endblock %}
 {% block content %}
-<section class="section page-head dash-head checkout-hero-clean">
+<section class="section page-head dash-head checkout-hero-clean checkout-flow-heading">
   <div>
     <div class="pill">Secure checkout</div>
-    <h1>Checkout</h1>
-    <p>Confirm the total, add your sender details, and pay securely through Stripe.</p>
+    <h1>Complete your gift</h1>
+    <p>A quick, secure checkout. Review your order and enter your details below.</p>
   </div>
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('cart', username=creator.username) }}">Back to cart</a></div>
 </section>
 
-<section class="section checkout-page-clean checkout-redesign">
-  <aside class="panel frost-card checkout-summary-card checkout-total-card">
-    <div class="section-head mini"><h2>Payment total</h2><span>{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span></div>
-
-    <details class="checkout-items-collapse">
-      <summary>
-        <span>View gift details</span>
-        <b>{{ money(total_cents) }}</b>
-      </summary>
-      <div class="checkout-item-list">
+<section class="section checkout-page-clean checkout-redesign checkout-flow-wrap">
+  <form class="panel frost-card checkout-form-card checkout-flow-card" method="post">
+    <div class="checkout-flow-section checkout-order-section">
+      <div class="checkout-flow-section-head"><div><span class="checkout-step">01</span><div><h2>Your order</h2><p>Gifts you’re sending</p></div></div><span class="checkout-count">{{ entries|length }} item{% if entries|length != 1 %}s{% endif %}</span></div>
+      <div class="checkout-flow-items">
         {% for entry in entries %}
-          <div class="checkout-item-mini">
+          <div class="checkout-flow-item">
             <img src="{{ image_src(entry.image_url) if entry.image_url else default_gift_image_url() }}" alt="{{ entry.title }} image" loading="lazy">
-            <div>
-              <b>{{ entry.title }}</b>
-              <span>{{ entry.type_label }}</span>
-            </div>
+            <div class="checkout-flow-item-copy"><b>{{ entry.title }}</b><span>{{ entry.type_label }}</span></div>
             <strong>{{ money(entry.amount_cents) }}</strong>
           </div>
         {% endfor %}
       </div>
-    </details>
-
-    <div class="checkout-money-lines">
-      <div class="money-line"><span>Gift amount</span><b>{{ money(total_cents) }}</b></div>
-      <div class="money-line"><span>Processing fee <small>{{ platform_fee_percent }}%</small></span><b>{{ money(fee_cents) }}</b></div>
-      <div class="money-line total"><span>You pay</span><b>{{ money(checkout_total_cents) }}</b></div>
-      <div class="money-line creator-keeps"><span>Creator receives</span><b>{{ money(total_cents) }}</b></div>
     </div>
 
-    <p class="muted tiny-note">The sender covers the processing fee so the creator’s website balance receives the full gift amount. <a class="info-link" href="{{ url_for('faq') }}#faq-fees" data-tip="For example, a $1.00 gift has a $0.10 fee, so the sender pays $1.10 and the creator receives $1.00." aria-label="Learn more about fees">i</a></p>
-  </aside>
+    <div class="checkout-flow-divider"></div>
+    <div class="checkout-flow-section">
+      <div class="checkout-flow-section-head"><div><span class="checkout-step">02</span><div><h2>Your details</h2><p>Where we’ll send your receipt</p></div></div></div>
+      <div class="checkout-fields-grid">
+        <label>Display name <span class="field-optional">Optional</span><input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
+        <label>Email address <span class="field-private">Private</span><input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
+        <label class="checkout-currency-field">Payment currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select><small class="currency-note muted">Creator balances are credited in USD. <a class="info-link" href="{{ url_for('faq') }}#faq-currency" data-tip="Stripe shows the final payment amount before you pay." aria-label="Learn more about currency">Learn more</a></small></label>
+        <label class="checkout-message-field">Message <span class="field-optional">Optional</span><textarea name="message" rows="3" maxlength="500" placeholder="Write a nice note..."></textarea></label>
+      </div>
+    </div>
 
-  <form class="panel form frost-card checkout-form-card" method="post">
-    <div class="pill">Payment info</div>
-    <h2>Sender details</h2>
-    <p class="muted">Your email stays private and is only used for receipts and payment support.</p>
-    <label>Public username shown to creator, optional<input name="supporter_name" placeholder="Leave blank for Anonymous" maxlength="80"></label>
-    <label>Email for receipt, private<input name="supporter_email" type="email" placeholder="you@example.com" maxlength="140"></label>
-    <label>Checkout currency<select name="currency" class="currency-select">{% for code, meta in supported_currencies.items() %}<option value="{{ code }}">{{ meta.label }}{% if code != 'usd' %} — estimated conversion{% endif %}</option>{% endfor %}</select></label>
-    <p class="currency-note muted">Creator balances are credited in USD. <a class="info-link" href="{{ url_for('faq') }}#faq-currency" data-tip="Stripe shows the final payment amount before you pay." aria-label="Learn more about currency">i</a></p>
-    <label>Message, optional<textarea name="message" rows="4" maxlength="500" placeholder="Write a nice note..."></textarea></label>
-    <p class="checkout-legal-note muted">By continuing, you agree to the <a href="{{ url_for('legal') }}" target="_blank" rel="noopener">Legal Center</a>, including our Terms, Privacy Policy, Cookie Policy, and Refund Policy.</p>
-    <button class="btn full" type="submit">Pay {{ money(checkout_total_cents) }} securely</button>
+    <div class="checkout-flow-divider"></div>
+    <div class="checkout-flow-section checkout-payment-section">
+      <div class="checkout-flow-section-head"><div><span class="checkout-step">03</span><div><h2>Payment summary</h2><p>Everything is shown before you pay</p></div></div></div>
+      <div class="checkout-money-lines checkout-money-lines-flow">
+        <div class="money-line"><span>Subtotal</span><b>{{ money(total_cents) }}</b></div>
+        <div class="money-line"><span>Fees</span><b>{{ money(fee_cents) }}</b></div>
+        <div class="money-line total"><span>Total</span><b>{{ money(checkout_total_cents) }}</b></div>
+      </div>
+      <p class="checkout-legal-note muted">By continuing, you agree to the <a href="{{ url_for('legal') }}" target="_blank" rel="noopener">Legal Center</a>, including our Terms, Privacy Policy, Cookie Policy, and Refund Policy.</p>
+      <button class="btn full checkout-pay-button" type="submit">Pay {{ money(checkout_total_cents) }} securely <span aria-hidden="true">→</span></button>
+      <p class="checkout-secure-note"><span aria-hidden="true">⌑</span> Secure payment processing</p>
+    </div>
   </form>
 </section>
 {% endblock %}
