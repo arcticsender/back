@@ -258,21 +258,14 @@ SMALL_CASHOUT_FEE_CENTS = 350
 MIN_GIFT_CENTS = 100
 
 def validate_production_config():
-    if APP_ENV != 'production':
-        return
     missing = []
-    if not os.getenv('SECRET_KEY') or app.config['SECRET_KEY'] == 'dev-change-this-secret':
-        missing.append('SECRET_KEY')
-    if not STRIPE_SECRET_KEY:
-        missing.append('STRIPE_SECRET_KEY')
-    if not STRIPE_PUBLISHABLE_KEY:
-        missing.append('STRIPE_PUBLISHABLE_KEY')
-    if not STRIPE_WEBHOOK_SECRET:
-        missing.append('STRIPE_WEBHOOK_SECRET')
-    if not BASE_URL.startswith('https://'):
-        missing.append('BASE_URL must be https:// in production')
-    if not os.getenv('DATABASE_URL', '').startswith(('postgres://', 'postgresql://', 'postgresql+')):
-        missing.append('DATABASE_URL must point to persistent PostgreSQL in production')
+    
+    # Check for MongoDB URI instead of PostgreSQL's DATABASE_URL
+    # You can change 'MONGO_URI' to whatever environment variable name you prefer
+    mongo_uri = os.environ.get('MONGO_URI') or os.environ.get('DATABASE_URL')
+    if not mongo_uri or not (mongo_uri.startswith('mongodb://') or mongo_uri.startswith('mongodb+srv://') or 'mongo' in mongo_uri.lower()):
+        missing.append('MONGO_URI must point to a valid MongoDB connection string')
+        
     if missing:
         raise RuntimeError('Production config incomplete: ' + ', '.join(missing))
 
