@@ -28,7 +28,7 @@
   <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
   <meta name="twitter:description" content="{{ self.meta_description()|striptags|trim }}">
   <meta name="twitter:image" content="{{ self.og_image()|striptags|trim }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='creator-drag-20261031-v5') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='mobile-drag-home-20261031-v6') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and creator cashouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
@@ -150,7 +150,7 @@
       <a href="mailto:support@arcticsender.com">Contact</a>
     </div>
   </footer>
-  <script src="{{ url_for('static', filename='js/app.js', v='creator-drag-20261031-v5') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/app.js', v='mobile-drag-home-20261031-v6') }}" defer></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('{{ url_for("service_worker") }}').catch(() => {}));</script>
 </body>
 </html>

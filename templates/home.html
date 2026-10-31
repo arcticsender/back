@@ -1,38 +1,33 @@
 {% extends 'base.html' %}
-{% block title %}{{ site_name }} | Better Creator Cash Gifts Than Throne-Style Wishlists{% endblock %}
-{% block meta_description %}Create a premium creator cash gift page with wishlist items, carts, private sender details, website balances and bank cashouts, and a cleaner experience built to feel better than Throne.{% endblock %}
+{% block title %}{{ site_name }} | Creator gifting made simple{% endblock %}
+{% block meta_description %}Create your own gift wishlist, share it with supporters, and manage gifts in one place.{% endblock %}
 {% block content %}
 {% if public_setting('giveaway_published') == 'true' %}<div class="gw-home-promo"><span>🎉 Creator giveaway is live</span><a href="{{ url_for('giveaway') }}">Enter for a chance to win →</a></div>{% endif %}
 <section class="hero section home-hero-clean">
   <div class="hero-copy">
     <img class="hero-brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt="ArcticSender logo">
-    <div class="pill">Private creator gifting</div>
-    <h1>Clean cash gifts for creators.</h1>
-    <p>{{ site_name }} gives creators a polished gift page, private sender handling, cart checkout, website balances and bank cashouts, and simple sharing without the messy dashboard clutter. Built to feel better than Throne for creators who want a simpler cash-first wishlist.</p>
+    <div class="pill">Made for creators</div>
+    <h1>Your wishlist. Your community.</h1>
+    <p>Build a beautiful gift page in minutes. Share one link, let supporters choose a gift, and manage everything in one simple dashboard.</p>
     <div class="hero-actions">
-      <a class="btn" href="{{ url_for('register') }}">Create your page</a>
-      {% if current_user %}<a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}">View my page</a>{% else %}<a class="btn ghost" href="{{ url_for('login') }}">Login</a>{% endif %}
+      <a class="btn" href="{{ url_for('register') }}">Create a free page</a>
+      {% if current_user %}<a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}">View my page</a>{% else %}<a class="btn ghost" href="{{ url_for('login') }}">Sign in</a>{% endif %}
     </div>
   </div>
   <a class="hero-card glass frost-card home-preview-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}">
     <div class="mini-profile"><img class="mini-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt=""><div><b>@creator</b><p>Gift page preview</p></div></div>
     <div class="send-option compact"><span>Crowdfund goal</span><b>$410 / $500</b><div class="bar"><span style="width:82%"></span></div></div>
-    <div class="preview-mini-grid">
-      <div class="send-option compact"><span>Cart</span><b>$154</b></div>
-      <div class="send-option compact"><span>Sender</span><b>@topfan</b></div>
-    </div>
-    <div class="balance-card compact"><small>Stripe Connect</small><strong>Ready</strong><em>Creator balance cashouts</em></div>
+    <div class="preview-mini-grid"><div class="send-option compact"><span>Wishlist</span><b>Choose a gift</b></div><div class="send-option compact"><span>Support</span><b>Made simple</b></div></div>
   </a>
 </section>
 
-<section class="section split-cards home-feature-strip">
-  <a class="feature-card interactive-card" href="{{ url_for('register') }}"><h3>Fast setup</h3><p>Create a page, add cash gifts, and connect bank cashout setup.</p></a>
-  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('settings') }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Private by default</h3><p>Emails and payment details stay hidden. Public names only show when supporters choose them.</p></a>
-  <a class="feature-card interactive-card" href="{% if current_user %}{{ url_for('profile', username=current_user.username) }}{% else %}{{ url_for('register') }}{% endif %}"><h3>Better than bulky wishlists</h3><p>A cleaner Throne alternative with cash gifts, carts, goals, and a named Gifters leaderboard.</p></a>
+<section class="section home-simple-steps" aria-labelledby="home-steps-title">
+  <div class="home-steps-head"><span class="pill">How it works</span><h2 id="home-steps-title">Three steps. One simple link.</h2><p>Everything creators need to start receiving support, without the noise.</p></div>
+  <div class="home-steps-grid">
+    <div class="home-step"><span class="home-step-number">01</span><h3>Create your page</h3><p>Set up your creator profile and add the gifts you want.</p></div>
+    <div class="home-step"><span class="home-step-number">02</span><h3>Share your link</h3><p>Give your community an easy way to discover your wishlist.</p></div>
+    <div class="home-step"><span class="home-step-number">03</span><h3>Receive support</h3><p>Supporters choose gifts, and you track them from your dashboard.</p></div>
+  </div>
 </section>
-<section class="home-seo-strip">
-  <h2>A cleaner cash-gift wishlist for creators</h2>
-  <p>ArcticSender is built as a faster, simpler creator wishlist and Throne alternative: supporters can add cash gifts to a cart, send fund goals, and check out privately while creators keep a polished public page and website balances and bank cashouts.</p>
-</section>
-
+<section class="section home-final-cta"><div><h2>Ready to create your wishlist?</h2><p>Start free and make a page that feels like yours.</p></div><a class="btn" href="{{ url_for('register') }}">Get started</a></section>
 {% endblock %}

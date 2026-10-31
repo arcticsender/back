@@ -244,11 +244,11 @@ document.addEventListener('click', async (event) => {
         headers: {'Content-Type':'application/json','X-CSRF-Token':token},
         body: JSON.stringify({item_ids:ids})
       });
-      if (!response.ok) throw new Error('Could not save gift order');
+      if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(error.error || 'Could not save gift order'); }
       setFeedback('Custom order saved. Your public wishlist now uses this arrangement.');
       table.closest('.table')?.classList.add('order-saved');
-    } catch (_) {
-      setFeedback('Could not save the order. Refresh the page and try again.');
+    } catch (error) {
+      setFeedback('Order not saved: ' + (error.message || 'Please refresh and try again.'));
     } finally { saving = false; }
   };
   const move = (row, direction) => {
@@ -259,68 +259,64 @@ document.addEventListener('click', async (event) => {
     row.parentNode.insertBefore(row, direction < 0 ? target : target.nextSibling);
     save();
   };
-  // Mobile pointer drag: only start after a deliberate hold on the grip.
-  // This prevents scrolling or tapping "Edit" / "Delete" from accidentally reordering.
-  let pendingHold = null;
-  let activeTouchDrag = null;
-  const clearHold = () => {
-    if (pendingHold) { window.clearTimeout(pendingHold.timer); pendingHold = null; }
-  };
-  const finishTouchDrag = () => {
-    clearHold();
-    if (!activeTouchDrag) return;
-    const active = activeTouchDrag;
-    active.row.classList.remove('is-touch-dragging');
+  // Touch-first reorder. Capture the pointer on the grip so mobile browsers
+  // continue delivering movement even when the finger leaves the gift card.
+  let holdTimer = null;
+  let pointerDrag = null;
+  const cancelHold = () => { if (holdTimer !== null) window.clearTimeout(holdTimer); holdTimer = null; };
+  const finishDrag = (event, cancelled = false) => {
+    cancelHold();
+    if (!pointerDrag || pointerDrag.id !== event.pointerId) return;
+    const drag = pointerDrag;
+    pointerDrag = null;
+    drag.row.classList.remove('is-touch-dragging');
     document.body.classList.remove('gift-reordering');
-    activeTouchDrag = null;
-    if (active.changed) save();
-    else setFeedback('Hold and slide a gift up or down to change its position.');
+    try { if (drag.grip.hasPointerCapture(event.pointerId)) drag.grip.releasePointerCapture(event.pointerId); } catch (_) {}
+    if (drag.moved) save();
+    else if (!cancelled) setFeedback('Hold the dotted handle, then slide up or down to reorder.');
   };
   rows().forEach(row => {
     const grip = row.querySelector('[data-gift-drag-handle]');
     if (!grip) return;
     grip.addEventListener('pointerdown', event => {
-      if (event.pointerType === 'mouse' || event.button !== 0 || saving) return;
-      clearHold();
-      const startY = event.clientY;
+      if (event.pointerType === 'mouse' || !event.isPrimary || saving) return;
+      event.preventDefault();
+      cancelHold();
       const pointerId = event.pointerId;
-      const timer = window.setTimeout(() => {
-        if (!pendingHold || pendingHold.pointerId !== pointerId) return;
-        pendingHold = null;
-        activeTouchDrag = { row, pointerId, changed: false };
+      try { grip.setPointerCapture(pointerId); } catch (_) {}
+      pointerDrag = {id:pointerId, grip, row, startY:event.clientY, active:false, moved:false};
+      holdTimer = window.setTimeout(() => {
+        if (!pointerDrag || pointerDrag.id !== pointerId) return;
+        pointerDrag.active = true;
         row.classList.add('is-touch-dragging');
         document.body.classList.add('gift-reordering');
-        if (navigator.vibrate) navigator.vibrate(20);
-        setFeedback('Move the gift up or down, then release to save.');
-      }, 260);
-      pendingHold = { pointerId, startY, timer };
+        if (navigator.vibrate) navigator.vibrate(15);
+        setFeedback('Slide your finger up or down; release to save.');
+      }, 240);
     });
-    grip.addEventListener('pointercancel', () => { clearHold(); finishTouchDrag(); });
+    grip.addEventListener('pointermove', event => {
+      const drag = pointerDrag;
+      if (!drag || drag.id !== event.pointerId) return;
+      if (!drag.active) {
+        if (Math.abs(event.clientY - drag.startY) > 18) finishDrag(event, true);
+        return;
+      }
+      event.preventDefault();
+      // Hit-testing by row rectangles works even when a captured pointer remains
+      // over the handle and when table rows are displayed as mobile CSS grids.
+      const peers = rows().filter(other => other !== drag.row && !other.hidden);
+      const next = peers.find(other => event.clientY < other.getBoundingClientRect().top + other.getBoundingClientRect().height / 2);
+      const before = drag.row.nextElementSibling;
+      if (next) drag.row.parentNode.insertBefore(drag.row, next);
+      else if (peers.length) drag.row.parentNode.insertBefore(drag.row, peers[peers.length - 1].nextSibling);
+      if (drag.row.nextElementSibling !== before) drag.moved = true;
+      if (event.clientY < 90) window.scrollBy(0,-12);
+      else if (event.clientY > window.innerHeight - 125) window.scrollBy(0,12);
+    }, {passive:false});
+    grip.addEventListener('pointerup', event => finishDrag(event));
+    grip.addEventListener('pointercancel', event => finishDrag(event, true));
+    grip.addEventListener('lostpointercapture', event => finishDrag(event, true));
     grip.addEventListener('contextmenu', event => event.preventDefault());
-  });
-  document.addEventListener('pointermove', event => {
-    if (pendingHold && pendingHold.pointerId === event.pointerId &&
-        Math.abs(event.clientY - pendingHold.startY) > 12) clearHold();
-    if (!activeTouchDrag || activeTouchDrag.pointerId !== event.pointerId) return;
-    event.preventDefault();
-    const {row} = activeTouchDrag;
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('tr[data-item-id]');
-    if (target && target !== row && table.contains(target)) {
-      const box = target.getBoundingClientRect();
-      row.parentNode.insertBefore(row, event.clientY >= box.top + box.height / 2 ? target.nextSibling : target);
-      activeTouchDrag.changed = true;
-    }
-    const edge = 74;
-    if (event.clientY < edge) window.scrollBy(0, -14);
-    if (event.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
-  }, {passive:false});
-  document.addEventListener('pointerup', event => {
-    if (pendingHold?.pointerId === event.pointerId) clearHold();
-    if (activeTouchDrag?.pointerId === event.pointerId) finishTouchDrag();
-  });
-  document.addEventListener('pointercancel', event => {
-    if (pendingHold?.pointerId === event.pointerId) clearHold();
-    if (activeTouchDrag?.pointerId === event.pointerId) finishTouchDrag();
   });
   rows().forEach(row => {
     row.querySelectorAll('[data-move]').forEach(button => {
