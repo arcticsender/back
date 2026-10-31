@@ -72,7 +72,7 @@
       <label>Trusted device duration<select name="trusted_device_days"><option value="7" {% if trusted_days == 7 %}selected{% endif %}>7 days</option><option value="14" {% if trusted_days == 14 %}selected{% endif %}>14 days</option><option value="30" {% if trusted_days == 30 %}selected{% endif %}>30 days</option><option value="60" {% if trusted_days == 60 %}selected{% endif %}>60 days</option><option value="90" {% if trusted_days == 90 %}selected{% endif %}>90 days</option></select></label>
       <label for="global-x-post-template">Default X post template for all creators</label>
       <textarea id="global-x-post-template" name="x_post_template" rows="4" maxlength="1000">{{ global_x_post_template() }}</textarea>
-      <p class="muted">Creators can override this in their X settings. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>. The gift image is attached to posts when upload succeeds.</p>
+      <p class="muted">Creators can override this in their X settings. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>, <code>{gifter_name}</code>. The gift image is attached to posts when upload succeeds.</p>
       <div class="admin-customization">
         <h3>Branding & announcement</h3>
         <label>Site tagline<input name="site_tagline" maxlength="180" value="{{ public_setting('site_tagline') }}" placeholder="Your platform tagline"></label>

@@ -261,3 +261,16 @@ document.addEventListener('click', async (event) => {
     row.tabIndex = 0; row.setAttribute('aria-label', 'Wishlist item. Use arrow keys to reorder.');
   });
 })();
+
+// Dismiss an announcement without permanently hiding a newly edited announcement.
+(() => {
+  const banner = document.querySelector('.global-announcement');
+  if (!banner) return;
+  const key = 'announcement-dismissed-v2';
+  const message = banner.querySelector('.announcement-message')?.textContent?.trim() || '';
+  try { if (sessionStorage.getItem(key) === message) banner.hidden = true; } catch (_) {}
+  banner.querySelector('[data-dismiss-announcement]')?.addEventListener('click', () => {
+    banner.hidden = true;
+    try { sessionStorage.setItem(key, message); } catch (_) {}
+  });
+})();

@@ -115,7 +115,7 @@
   <section class="panel form wide frost-card" id="x-integration">
     <div class="pill">Social integration</div>
     <h2>Connect X</h2>
-    <p class="muted">Connect your X account and optionally publish an automatic thank-you post after a contribution is successfully paid. Posts never include the sender’s name or email.</p>
+    <p class="muted">Connect your X account and optionally publish an automatic thank-you post after a contribution is successfully paid. Posts never include the sender’s email. The {gifter_name} variable uses only the public name the sender chose, or Anonymous.</p>
     {% if current_user.x_user_id %}
       <div class="payout-status-panel"><b>Connected as @{{ current_user.x_username }}</b><p class="muted">X account linked successfully.</p></div>
       <form method="post" action="{{ url_for('x_settings') }}" class="settings-actions-row">
@@ -124,7 +124,7 @@
         <label class="check clean-toggle-row"><input type="checkbox" name="x_auto_post" value="1" {% if current_user.x_auto_post %}checked{% endif %}> Automatically post when I receive a paid gift</label>
         <label for="x-post-template">Custom X post text</label>
         <textarea id="x-post-template" name="x_post_template" rows="4" maxlength="1000" placeholder="Use the platform default">{{ current_user.x_post_template or '' }}</textarea>
-        <p class="muted">Leave blank to use the admin default: {{ global_x_post_template() }}. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>. Posts are limited to 280 characters. The gift image is attached when supported.</p>
+        <p class="muted">Leave blank to use the admin default: {{ global_x_post_template() }}. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>, <code>{gifter_name}</code>. Posts are limited to 280 characters. The gift image is attached when supported.</p>
         <button class="btn full">Save X preferences</button>
       </form>
       <form method="post" action="{{ url_for('x_retry_failed') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn ghost full">Retry failed X posts</button></form>

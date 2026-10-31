@@ -110,8 +110,8 @@ SITE_NAME = os.getenv('SITE_NAME', 'ArcticSender')
 X_CLIENT_ID = (os.getenv('X_CLIENT_ID') or '').strip()
 X_CLIENT_SECRET = (os.getenv('X_CLIENT_SECRET') or '').strip()
 X_REDIRECT_URI = (os.getenv('X_REDIRECT_URI') or '').strip()
-DEFAULT_X_POST_TEMPLATE = 'Just received {amount} for {gift} on {site} ❄️'
-X_POST_VARIABLES = ('{amount}', '{gift}', '{site}', '{creator}')
+DEFAULT_X_POST_TEMPLATE = 'Thank you {gifter_name} for {gift} ({amount}) on {site}! ❄️'
+X_POST_VARIABLES = ('{amount}', '{gift}', '{site}', '{creator}', '{gifter_name}')
 def global_x_post_template():
     try:
         setting = SiteSetting.query.filter_by(key='x_post_template').first()
@@ -121,7 +121,7 @@ def global_x_post_template():
 
 def render_x_post_template(template, contribution):
     creator = contribution.creator
-    values = {'{amount}': money(contribution.amount_cents), '{gift}': contribution.item.title if contribution.item else 'a gift', '{site}': SITE_NAME, '{creator}': creator.display_name}
+    values = {'{amount}': money(contribution.amount_cents), '{gift}': contribution.item.title if contribution.item else 'a gift', '{site}': SITE_NAME, '{creator}': creator.display_name, '{gifter_name}': safe_public_sender(contribution.supporter_name)}
     for key, value in values.items():
         template = template.replace(key, str(value))
     return template[:280]

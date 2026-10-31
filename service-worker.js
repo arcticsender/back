@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arcticsender-shell-v1';
+const CACHE_NAME = 'arcticsender-shell-v3';
 const SHELL = []; 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).catch(() => {}));
@@ -12,10 +12,11 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
   const url = new URL(request.url);
+  // Network-first static files ensure layout and security fixes appear after deploy.
   if (url.pathname.startsWith('/static/')) {
-    event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
+    event.respondWith(fetch(request).then(response => {
       if (response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(cache => cache.put(request, copy)); }
       return response;
-    })));
+    }).catch(() => caches.match(request)));
   }
 });

@@ -28,7 +28,7 @@
   <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
   <meta name="twitter:description" content="{{ self.meta_description()|striptags|trim }}">
   <meta name="twitter:image" content="{{ self.og_image()|striptags|trim }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='mobile-refresh-20261031-2') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and creator cashouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
@@ -39,7 +39,7 @@
   <a class="skip-link" href="#main-content">Skip to content</a>
   {% if active_theme in ['winter', 'christmas'] %}<canvas id="snow-canvas" aria-hidden="true"></canvas>{% else %}<div id="seasonal-atmosphere" aria-hidden="true"></div>{% endif %}
   {% if public_setting('site_announcement') %}
-  <div class="global-announcement" role="status"><span>{{ public_setting('site_announcement') }}</span>{% if public_setting('site_announcement_link') %}<a href="{{ public_setting('site_announcement_link') }}" {% if public_setting('site_announcement_link').startswith('https://') %}rel="noopener noreferrer"{% endif %}>Learn more →</a>{% endif %}</div>
+  <div class="global-announcement" role="status"><span class="announcement-icon" aria-hidden="true">✦</span><span class="announcement-message">{{ public_setting('site_announcement') }}</span>{% if public_setting('site_announcement_link') %}<a href="{{ public_setting('site_announcement_link') }}" {% if public_setting('site_announcement_link').startswith('https://') %}rel="noopener noreferrer"{% endif %}>Learn more →</a>{% endif %}<button class="announcement-dismiss" type="button" aria-label="Dismiss announcement" data-dismiss-announcement>×</button></div>
   {% endif %}
   <div class="snowfield"></div>
   <div class="bg-orb orb-a"></div>
