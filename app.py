@@ -292,7 +292,7 @@ OTP_MAX_ATTEMPTS = max(3, int(os.getenv('OTP_MAX_ATTEMPTS', '6')))
 OTP_WINDOW_SECONDS = max(60, int(os.getenv('OTP_WINDOW_SECONDS', '600')))
 FORGOT_PASSWORD_MAX_ATTEMPTS = max(3, int(os.getenv('FORGOT_PASSWORD_MAX_ATTEMPTS', '5')))
 FORGOT_PASSWORD_WINDOW_SECONDS = max(300, int(os.getenv('FORGOT_PASSWORD_WINDOW_SECONDS', '3600')))
-ADMIN_MAX_ATTEMPTS = max(5, int(os.getenv('ADMIN_MAX_ATTEMPTS', '20')))
+ADMIN_MAX_ATTEMPTS = max(5, int(os.getenv('ADMIN_MAX_ATTEMPTS', '60')))
 ADMIN_WINDOW_SECONDS = max(60, int(os.getenv('ADMIN_WINDOW_SECONDS', '600')))
 SECURITY_HEADERS_ENABLED = os.getenv('SECURITY_HEADERS_ENABLED', 'true').lower() == 'true'
 
@@ -1093,7 +1093,18 @@ def csrf_token():
 
 @app.before_request
 def protect_admin_paths():
-    if request.path.startswith('/admin') and is_rate_limited('admin-path', ADMIN_MAX_ATTEMPTS, ADMIN_WINDOW_SECONDS):
+    # Reading the dashboard is not a sensitive action. A per-IP limit on every
+    # GET used to lock administrators out after just 20 page loads, and could
+    # affect unrelated accounts behind the same reverse proxy.
+    # Keep rate limiting for state-changing admin requests. The existing
+    # admin_required, CSRF protection and login-specific limits still apply.
+    if not (request.path == '/admin' or request.path.startswith('/admin/')):
+        return
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return
+    user_id = session.get('user_id')
+    subject = f'user:{user_id}' if user_id else 'unauthenticated'
+    if is_rate_limited('admin-write', ADMIN_MAX_ATTEMPTS, ADMIN_WINDOW_SECONDS, subject):
         abort(429)
 
 
