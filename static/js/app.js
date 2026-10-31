@@ -125,7 +125,7 @@
 })();
 
 (() => {
-  const button = document.querySelector('.mobile-menu-btn');
+  const button = document.querySelector('.mobile-bottom-nav .mobile-menu-btn');
   const drawer = document.getElementById('mobile-drawer');
   if (!button || !drawer) return;
   const open = () => {
