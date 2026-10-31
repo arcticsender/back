@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}{{ site_name }} | Creator Cash Gifts & Wishlist Pages{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}ArcticSender is a cleaner creator cash gift wishlist and Throne alternative with private checkout, gift carts, website balances, and polished share pages.{% endblock %}">
+  <meta name="color-scheme" content="dark">
   <meta name="keywords" content="creator wishlist, cash gifts, creator gifts, wishlist platform, Throne alternative, creator cashouts, fan support, ArcticSender">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="{% block canonical_url %}{{ request.url }}{% endblock %}">
@@ -34,9 +35,12 @@
   </script>
   {% block head_extra %}{% endblock %}
 </head>
-<body data-theme="{{ active_theme }}" {% if current_user and current_user.compact_dashboard %}data-compact-dashboard="true"{% endif %}>
+<body data-theme="{{ active_theme }}" data-site-accent="{{ public_setting('site_accent') }}" data-site-density="{{ public_setting('site_density') }}" data-site-corners="{{ public_setting('site_corner_style') }}" data-site-motion="{{ public_setting('site_motion') }}" {% if current_user and current_user.compact_dashboard %}data-compact-dashboard="true"{% endif %}>
   <a class="skip-link" href="#main-content">Skip to content</a>
   {% if active_theme in ['winter', 'christmas'] %}<canvas id="snow-canvas" aria-hidden="true"></canvas>{% else %}<div id="seasonal-atmosphere" aria-hidden="true"></div>{% endif %}
+  {% if public_setting('site_announcement') %}
+  <div class="global-announcement" role="status"><span>{{ public_setting('site_announcement') }}</span>{% if public_setting('site_announcement_link') %}<a href="{{ public_setting('site_announcement_link') }}" {% if public_setting('site_announcement_link').startswith('https://') %}rel="noopener noreferrer"{% endif %}>Learn more →</a>{% endif %}</div>
+  {% endif %}
   <div class="snowfield"></div>
   <div class="bg-orb orb-a"></div>
   <div class="bg-orb orb-b"></div>

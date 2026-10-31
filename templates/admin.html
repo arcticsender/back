@@ -11,6 +11,9 @@
   <div class="head-actions"><a class="btn ghost" href="{{ url_for('home') }}">View site</a></div>
 </section>
 
+<nav class="admin-jump" aria-label="Admin sections">
+  <a href="#admin-branding">Appearance</a><a href="#admin-accounts">Accounts</a><a href="#admin-gifts">Gifts</a><a href="#admin-cashouts">Cashouts</a><a href="#admin-audit">Audit log</a>
+</nav>
 <section class="section admin-stats compact-section">
   <div class="stat-card"><span>Users</span><b>{{ users|length }}</b><small>{{ totals.verified_users }} verified · {{ totals.suspended }} suspended</small></div>
   <div class="stat-card"><span>Paid volume</span><b>{{ money(totals.paid_cents) }}</b><small>Successfully paid contributions</small></div>
@@ -52,7 +55,7 @@
 </section>
 
 {% if current_user.admin_role in ['owner', 'admin'] %}
-<section class="section compact-section">
+<section class="section compact-section" id="admin-branding">
   <div class="section-head"><h2>Site appearance</h2><span>Persistent setting</span></div>
   <div class="panel compact-card admin-settings-panel">
     <div><h3>Seasonal theme</h3><p class="muted">Choose automatic seasonal styling or pin a specific look. Changes apply site-wide without a redeploy.</p></div>
@@ -67,6 +70,25 @@
       <label class="admin-security-toggle"><input type="checkbox" name="registration_enabled" {% if site_setting_enabled('registration_enabled', true) %}checked{% endif %}> Allow new account registrations</label>
       <label class="admin-security-toggle"><input type="checkbox" name="x_auto_post_enabled" {% if site_setting_enabled('x_auto_post_enabled', true) %}checked{% endif %}> Allow creator X auto-posting platform-wide</label>
       <label>Trusted device duration<select name="trusted_device_days"><option value="7" {% if trusted_days == 7 %}selected{% endif %}>7 days</option><option value="14" {% if trusted_days == 14 %}selected{% endif %}>14 days</option><option value="30" {% if trusted_days == 30 %}selected{% endif %}>30 days</option><option value="60" {% if trusted_days == 60 %}selected{% endif %}>60 days</option><option value="90" {% if trusted_days == 90 %}selected{% endif %}>90 days</option></select></label>
+      <label for="global-x-post-template">Default X post template for all creators</label>
+      <textarea id="global-x-post-template" name="x_post_template" rows="4" maxlength="1000">{{ global_x_post_template() }}</textarea>
+      <p class="muted">Creators can override this in their X settings. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>. The gift image is attached to posts when upload succeeds.</p>
+      <div class="admin-customization">
+        <h3>Branding & announcement</h3>
+        <label>Site tagline<input name="site_tagline" maxlength="180" value="{{ public_setting('site_tagline') }}" placeholder="Your platform tagline"></label>
+        <label>Announcement banner<input name="site_announcement" maxlength="180" value="{{ public_setting('site_announcement') }}" placeholder="Optional platform-wide announcement"></label>
+        <label>Announcement link<input name="site_announcement_link" maxlength="300" value="{{ public_setting('site_announcement_link') }}" placeholder="/faq or https://example.com"></label>
+        <div class="admin-settings-grid">
+          <label>Accent palette<select name="site_accent">{% for v in ['ice','violet','emerald','rose'] %}<option value="{{ v }}" {% if public_setting('site_accent') == v %}selected{% endif %}>{{ v|title }}</option>{% endfor %}</select></label>
+          <label>Layout density<select name="site_density">{% for v in ['comfortable','compact'] %}<option value="{{ v }}" {% if public_setting('site_density') == v %}selected{% endif %}>{{ v|title }}</option>{% endfor %}</select></label>
+          <label>Corner style<select name="site_corner_style">{% for v in ['rounded','soft','square'] %}<option value="{{ v }}" {% if public_setting('site_corner_style') == v %}selected{% endif %}>{{ v|title }}</option>{% endfor %}</select></label>
+          <label>Animation<select name="site_motion">{% for v in ['standard','reduced'] %}<option value="{{ v }}" {% if public_setting('site_motion') == v %}selected{% endif %}>{{ v|title }}</option>{% endfor %}</select></label>
+        </div>
+        <h3>Support & operational copy</h3>
+        <label>Support contact email<input type="email" name="support_contact_email" maxlength="180" value="{{ public_setting('support_contact_email') }}" placeholder="support@example.com"></label>
+        <label>Maintenance message<textarea name="maintenance_message" maxlength="300" rows="2">{{ public_setting('maintenance_message') }}</textarea></label>
+        <p class="muted">Appearance preferences apply immediately across the site. Maintenance messaging is stored for future operational use; it does not put the site into maintenance mode.</p>
+      </div>
       <button class="btn">Save settings</button>
     </form>
     <p class="muted admin-security-note">{{ trusted_device_count }} active trusted browsers. Trusted devices are protected by a random secure cookie and browser fingerprint; IP is recorded for review but is not used as the sole trust factor.</p>
@@ -74,7 +96,7 @@
 </section>
 {% endif %}
 
-<section class="section compact-section">
+<section class="section compact-section" id="admin-accounts">
   <div class="section-head"><h2>Accounts</h2><span>{{ users|length }} total</span></div>
   <div class="table panel admin-table"><table>
     <tr><th>User</th><th>Email</th><th>Status</th><th>Stripe</th><th>Balance</th><th>Last login</th><th></th></tr>
@@ -92,13 +114,13 @@
   </table></div>
 </section>
 
-<section class="section compact-section">
+<section class="section compact-section" id="admin-gifts">
   <div class="section-head"><h2>Recent contributions</h2></div>
   <div class="table panel admin-table"><table><tr><th>Supporter</th><th>Creator</th><th>Type</th><th>Amount</th><th>Status</th><th>Stripe</th></tr>{% for c in contributions %}<tr><td>{{ c.supporter_name if c.supporter_name and c.supporter_name != 'Anonymous' else 'Anonymous supporter' }}</td><td>@{{ c.creator.username }}</td><td>{{ c.support_type }}</td><td>{{ money(c.amount_cents) }}</td><td>{{ c.status }}</td><td>{{ c.stripe_session_id[:18] if c.stripe_session_id else '—' }}</td></tr>{% else %}<tr><td colspan="6">No contributions yet.</td></tr>{% endfor %}</table></div>
 </section>
 
-<section class="section compact-section"><div class="section-head"><h2>Cashout requests</h2></div><div class="table panel admin-table"><table><tr><th>Creator</th><th>Gross</th><th>Fee</th><th>Status</th><th>Stripe</th><th></th></tr>{% for c in cashouts %}<tr><td>@{{ c.creator.username }}</td><td>{{ money(c.gross_cents) }}</td><td>{{ money(c.fee_cents) }}</td><td>{{ c.status }}</td><td>{{ c.creator.stripe_account_id or 'Missing' }}</td><td class="right">{% if c.status == 'pending' and current_user.admin_role in ['owner', 'admin'] %}<form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='approve') }}"><button>Approve</button></form><form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='reject') }}"><button>Reject</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No cashout requests.</td></tr>{% endfor %}</table></div></section>
-<section class="section compact-section">
+<section class="section compact-section" id="admin-cashouts"><div class="section-head"><h2>Cashout requests</h2></div><div class="table panel admin-table"><table><tr><th>Creator</th><th>Gross</th><th>Fee</th><th>Status</th><th>Stripe</th><th></th></tr>{% for c in cashouts %}<tr><td>@{{ c.creator.username }}</td><td>{{ money(c.gross_cents) }}</td><td>{{ money(c.fee_cents) }}</td><td>{{ c.status }}</td><td>{{ c.creator.stripe_account_id or 'Missing' }}</td><td class="right">{% if c.status == 'pending' and current_user.admin_role in ['owner', 'admin'] %}<form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='approve') }}"><button>Approve</button></form><form class="inline" method="post" action="{{ url_for('admin_cashout_action', cashout_id=c.id, action='reject') }}"><button>Reject</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6">No cashout requests.</td></tr>{% endfor %}</table></div></section>
+<section class="section compact-section" id="admin-audit">
   <div class="section-head"><h2>Admin activity</h2><span>Latest 30 events</span></div>
   <div class="table panel admin-table"><table><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr>
     {% for log in admin_logs %}<tr><td>{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '—' }}</td><td>{{ log.admin_email }}</td><td>{{ log.action }}</td><td>{{ log.target }}</td><td>{{ log.details }}</td></tr>{% else %}<tr><td colspan="5">No admin activity recorded yet.</td></tr>{% endfor %}

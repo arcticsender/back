@@ -66,6 +66,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-change-this-secret')
+if os.getenv('APP_ENV', '').lower() == 'production' and app.config['SECRET_KEY'] == 'dev-change-this-secret':
+    raise RuntimeError('SECRET_KEY must be set before starting in production')
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE=os.getenv('SESSION_COOKIE_SAMESITE', 'Lax'),
@@ -108,6 +110,22 @@ SITE_NAME = os.getenv('SITE_NAME', 'ArcticSender')
 X_CLIENT_ID = (os.getenv('X_CLIENT_ID') or '').strip()
 X_CLIENT_SECRET = (os.getenv('X_CLIENT_SECRET') or '').strip()
 X_REDIRECT_URI = (os.getenv('X_REDIRECT_URI') or '').strip()
+DEFAULT_X_POST_TEMPLATE = 'Just received {amount} for {gift} on {site} ❄️'
+X_POST_VARIABLES = ('{amount}', '{gift}', '{site}', '{creator}')
+def global_x_post_template():
+    try:
+        setting = SiteSetting.query.filter_by(key='x_post_template').first()
+        return setting.value if setting and setting.value.strip() else DEFAULT_X_POST_TEMPLATE
+    except Exception:
+        return DEFAULT_X_POST_TEMPLATE
+
+def render_x_post_template(template, contribution):
+    creator = contribution.creator
+    values = {'{amount}': money(contribution.amount_cents), '{gift}': contribution.item.title if contribution.item else 'a gift', '{site}': SITE_NAME, '{creator}': creator.display_name}
+    for key, value in values.items():
+        template = template.replace(key, str(value))
+    return template[:280]
+
 def x_fernet():
     if not Fernet or not app.config.get('SECRET_KEY') or app.config['SECRET_KEY'] == 'dev-change-this-secret':
         return None
@@ -137,6 +155,33 @@ def refresh_x_token(user):
     if payload.get('refresh_token'): user.x_refresh_token_enc=encrypt_x_token(payload['refresh_token'])
     user.x_token_expires_at=datetime.now(UTC).replace(tzinfo=None)+timedelta(seconds=int(payload.get('expires_in',7200)))
     db.session.commit(); return payload.get('access_token','')
+def upload_gift_image_to_x(access_token, image_url):
+    # X v2 media upload uses raw image bytes, not a URL.
+    if not requests or not image_url:
+        return None
+    from urllib.parse import urlparse
+    parsed = urlparse(image_url)
+    base = urlparse(BASE_URL)
+    if parsed.scheme not in ('https', 'http') or parsed.netloc != base.netloc:
+        # Avoid downloading arbitrary remote URLs using the server's credentials/network.
+        return None
+    response = requests.get(image_url, timeout=12, stream=True)
+    response.raise_for_status()
+    content_type = response.headers.get('Content-Type', '').split(';')[0].lower()
+    if content_type not in ('image/jpeg', 'image/png', 'image/webp', 'image/gif'):
+        return None
+    image_data = response.raw.read(5 * 1024 * 1024 + 1)
+    response.close()
+    if len(image_data) > 5 * 1024 * 1024:
+        return None
+    upload = requests.post('https://api.x.com/2/media/upload',
+        headers={'Authorization': 'Bearer ' + access_token},
+        files={'media': ('gift-image', image_data, content_type)},
+        data={'media_category': 'tweet_image'}, timeout=25)
+    upload.raise_for_status()
+    result = upload.json()
+    return str(result.get('data', {}).get('id') or result.get('media_id_string') or '') or None
+
 def post_paid_gift_to_x(contribution):
     user=contribution.creator
     if not site_setting_enabled('x_auto_post_enabled', True) or not user.x_auto_post or not user.x_access_token_enc or contribution.x_posted_at or contribution.x_post_status in ('sending','posted'):
@@ -147,9 +192,17 @@ def post_paid_gift_to_x(contribution):
     try:
         if user.x_token_expires_at and user.x_token_expires_at <= datetime.now(UTC).replace(tzinfo=None)+timedelta(minutes=2):
             user_token=refresh_x_token(user)
-        title=contribution.item.title if contribution.item else 'a gift'
-        text=f'Just received {money(contribution.amount_cents)} for {title} on ArcticSender ❄️'
-        x_api_request('POST','tweets',user_token,{'text':text[:280]})
+        text = render_x_post_template(user.x_post_template.strip() or global_x_post_template(), contribution)
+        payload = {'text': text}
+        # X requires media to be uploaded before a tweet can reference it.
+        image_url = gift_email_image(contribution)
+        try:
+            media_id = upload_gift_image_to_x(user_token, image_url)
+            if media_id:
+                payload['media'] = {'media_ids': [media_id]}
+        except Exception:
+            app.logger.exception('X gift image upload failed for contribution %s; sending text only', contribution.id)
+        x_api_request('POST', 'tweets', user_token, payload)
         contribution.x_post_status='posted'; contribution.x_posted_at=datetime.now(UTC).replace(tzinfo=None); db.session.commit(); return True
     except Exception:
         app.logger.exception('X auto-post failed for contribution %s', contribution.id)
@@ -291,6 +344,7 @@ class User(db.Model):
     x_refresh_token_enc = db.Column(db.Text, default='')
     x_token_expires_at = db.Column(db.DateTime, nullable=True)
     x_auto_post = db.Column(db.Boolean, nullable=False, default=False)
+    x_post_template = db.Column(db.Text, nullable=False, default='')
     stripe_account_id = db.Column(db.String(100), default='')
     stripe_onboarding_complete = db.Column(db.Boolean, default=False)
     stripe_charges_enabled = db.Column(db.Boolean, default=False)
@@ -534,6 +588,24 @@ class PasswordResetToken(db.Model):
     def is_active(self):
         return self.used_at is None and self.expires_at >= datetime.now(UTC).replace(tzinfo=None)
 
+
+# Allowlisted settings only: never expose arbitrary keys or secrets in admin forms.
+PUBLIC_CUSTOMIZATION_DEFAULTS = {
+    'site_announcement': '', 'site_announcement_link': '',
+    'site_tagline': 'Support creators with meaningful gifts.',
+    'site_accent': 'ice', 'site_density': 'comfortable',
+    'site_corner_style': 'rounded', 'site_motion': 'standard',
+    'support_contact_email': '', 'maintenance_message': 'We are making improvements. Please check back soon.',
+}
+
+def public_setting(key):
+    if key not in PUBLIC_CUSTOMIZATION_DEFAULTS:
+        return ''
+    try:
+        item = SiteSetting.query.filter_by(key=key).first()
+        return item.value if item else PUBLIC_CUSTOMIZATION_DEFAULTS[key]
+    except Exception:
+        return PUBLIC_CUSTOMIZATION_DEFAULTS[key]
 
 def site_setting_enabled(key, default=True):
     try:
@@ -1035,6 +1107,7 @@ def inject_globals():
     return {
         'current_user': current_user(),
         'site_name': SITE_NAME,
+        'public_setting': public_setting,
         'active_theme': get_active_site_theme(),
         'stripe_publishable_key': STRIPE_PUBLISHABLE_KEY,
         'money': money,
@@ -1060,6 +1133,7 @@ def inject_globals():
         'request': request,
         'csrf_token': csrf_token,
         'default_gift_image_url': default_gift_image_url,
+        'global_x_post_template': global_x_post_template,
         'sender_initial': sender_initial,
         'public_asset_url': public_asset_url,
         'notification_unread_count': (Notification.query.filter_by(user_id=current_user().id, is_read=False).count() if current_user() else 0),
@@ -2536,6 +2610,7 @@ def x_settings():
         flash('X account disconnected.', 'success')
     else:
         user.x_auto_post=bool(user.x_access_token_enc) and any(v == '1' for v in request.form.getlist('x_auto_post'))
+        user.x_post_template=request.form.get('x_post_template', '').strip()[:1000]
         flash('X auto-post preference saved.', 'success')
     db.session.commit(); mongo_backup_model(user); return redirect(url_for('settings')+'#x-integration')
 
@@ -3361,13 +3436,32 @@ def admin_save_settings():
         abort(400)
     registration_enabled = 'true' if request.form.get('registration_enabled') == 'on' else 'false'
     x_auto_post_enabled = 'true' if request.form.get('x_auto_post_enabled') == 'on' else 'false'
-    for key, value in [('site_theme', theme), ('login_otp_required', otp_required), ('trusted_device_days', str(days)), ('registration_enabled', registration_enabled), ('x_auto_post_enabled', x_auto_post_enabled)]:
+    x_post_template = request.form.get('x_post_template', DEFAULT_X_POST_TEMPLATE).strip()[:1000] or DEFAULT_X_POST_TEMPLATE
+    values = {
+        'site_announcement': request.form.get('site_announcement', '').strip()[:180],
+        'site_announcement_link': request.form.get('site_announcement_link', '').strip()[:300],
+        'site_tagline': request.form.get('site_tagline', '').strip()[:180],
+        'site_accent': request.form.get('site_accent', 'ice'),
+        'site_density': request.form.get('site_density', 'comfortable'),
+        'site_corner_style': request.form.get('site_corner_style', 'rounded'),
+        'site_motion': request.form.get('site_motion', 'standard'),
+        'support_contact_email': request.form.get('support_contact_email', '').strip()[:180],
+        'maintenance_message': request.form.get('maintenance_message', '').strip()[:300],
+    }
+    if values['site_accent'] not in ('ice', 'violet', 'emerald', 'rose'): abort(400)
+    if values['site_density'] not in ('comfortable', 'compact'): abort(400)
+    if values['site_corner_style'] not in ('rounded', 'soft', 'square'): abort(400)
+    if values['site_motion'] not in ('standard', 'reduced'): abort(400)
+    link = values['site_announcement_link']
+    if link and not (link.startswith('/') and not link.startswith('//')) and not link.startswith('https://'): abort(400)
+    if values['support_contact_email'] and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', values['support_contact_email']): abort(400)
+    for key, value in [('site_theme', theme), ('login_otp_required', otp_required), ('trusted_device_days', str(days)), ('registration_enabled', registration_enabled), ('x_auto_post_enabled', x_auto_post_enabled), ('x_post_template', x_post_template)] + list(values.items()):
         setting = SiteSetting.query.filter_by(key=key).first()
         if not setting:
             db.session.add(SiteSetting(key=key, value=value))
         else:
             setting.value = value
-    write_admin_audit('settings.platform', 'Platform controls', f'Registration: {registration_enabled}; X auto-post: {x_auto_post_enabled}; OTP: {otp_required}; trusted devices: {days} days')
+    write_admin_audit('settings.platform', 'Platform controls', f'Registration: {registration_enabled}; X auto-post: {x_auto_post_enabled}; OTP: {otp_required}; trusted devices: {days} days; UI: {values["site_accent"]}/{values["site_density"]}')
     db.session.commit()
     flash('Site and security settings saved.', 'success')
     return redirect(url_for('admin'))
@@ -3521,7 +3615,7 @@ def migrate_sqlite_columns():
                 for col, sql in {
                     'x_user_id': "VARCHAR(40) DEFAULT ''", 'x_username': "VARCHAR(80) DEFAULT ''",
                     'x_access_token_enc': "TEXT DEFAULT ''", 'x_refresh_token_enc': "TEXT DEFAULT ''",
-                    'x_token_expires_at': 'TIMESTAMP', 'x_auto_post': 'BOOLEAN NOT NULL DEFAULT FALSE'
+                    'x_token_expires_at': 'TIMESTAMP', 'x_auto_post': 'BOOLEAN NOT NULL DEFAULT FALSE', 'x_post_template': "TEXT NOT NULL DEFAULT ''"
                 }.items():
                     conn.exec_driver_sql(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {col} {sql}')
                 conn.exec_driver_sql("ALTER TABLE contribution ADD COLUMN IF NOT EXISTS x_post_status VARCHAR(20) NOT NULL DEFAULT 'not_sent'")
@@ -3567,6 +3661,7 @@ def migrate_sqlite_columns():
                 'x_refresh_token_enc': "ALTER TABLE user ADD COLUMN x_refresh_token_enc TEXT DEFAULT ''",
                 'x_token_expires_at': "ALTER TABLE user ADD COLUMN x_token_expires_at DATETIME",
                 'x_auto_post': "ALTER TABLE user ADD COLUMN x_auto_post BOOLEAN DEFAULT 0 NOT NULL",
+                'x_post_template': "ALTER TABLE user ADD COLUMN x_post_template TEXT DEFAULT '' NOT NULL",
             }
             for column_name, sql in extra_user_columns.items():
                 if column_name not in columns:

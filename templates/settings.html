@@ -122,6 +122,9 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="preferences">
         <input type="hidden" name="x_auto_post" value="0">
         <label class="check clean-toggle-row"><input type="checkbox" name="x_auto_post" value="1" {% if current_user.x_auto_post %}checked{% endif %}> Automatically post when I receive a paid gift</label>
+        <label for="x-post-template">Custom X post text</label>
+        <textarea id="x-post-template" name="x_post_template" rows="4" maxlength="1000" placeholder="Use the platform default">{{ current_user.x_post_template or '' }}</textarea>
+        <p class="muted">Leave blank to use the admin default: {{ global_x_post_template() }}. Variables: <code>{amount}</code>, <code>{gift}</code>, <code>{site}</code>, <code>{creator}</code>. Posts are limited to 280 characters. The gift image is attached when supported.</p>
         <button class="btn full">Save X preferences</button>
       </form>
       <form method="post" action="{{ url_for('x_retry_failed') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn ghost full">Retry failed X posts</button></form>
