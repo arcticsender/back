@@ -2431,3 +2431,22 @@ body[data-site-density="compact"] .section{margin-top:20px;margin-bottom:20px}bo
   .dashboard-gifts-table .drag-handle { display:none!important; }
   .dashboard-gifts-table tr[data-item-id]:focus-within { border-color:rgba(123,190,255,.65); }
 }
+
+/* Creator-only mobile reorder + edit action clearance, November 2026 */
+.gift-drag-grip {display:none;align-items:center;justify-content:center;gap:4px;border:1px solid rgba(180,205,247,.3);border-radius:12px;background:#263e60;color:#fff;cursor:grab;}
+.gift-drag-grip span{font-size:23px;line-height:1}.gift-drag-grip small{font-size:10px;font-weight:700;line-height:1.1}
+@media(max-width:760px){
+  .dashboard-gifts-table .gift-drag-grip{display:flex!important;flex-direction:column;width:65px;min-height:60px;padding:7px 4px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+  .dashboard-gifts-table .order-move{display:none!important}
+  .dashboard-gifts-table .order-controls{display:flex!important;align-items:center;justify-content:center}
+  .dashboard-gifts-table tr.is-touch-dragging{position:relative;z-index:10;border-color:#8fb9ff!important;box-shadow:0 12px 30px rgba(0,0,0,.45)!important;background:#203858!important}
+  .dashboard-gifts-table .gift-drag-grip:focus-visible{outline:3px solid #a5c9ff;outline-offset:2px}
+  body.gift-reordering{user-select:none;-webkit-user-select:none}
+  /* Use an independent viewport-limited sheet, not an offscreen popup behind nav. */
+  .owner-edit-modal.gift-modal{z-index:1300!important;align-items:center!important;padding:10px 10px calc(12px + env(safe-area-inset-bottom))!important}
+  .owner-edit-modal .gift-modal-card.owner-edit-modal-card{display:flex!important;flex-direction:column!important;max-height:calc(100dvh - 22px - env(safe-area-inset-bottom))!important;overflow:hidden!important;}
+  .owner-edit-modal .owner-edit-modal-head{flex:0 0 auto;padding:16px!important}
+  .owner-edit-modal .owner-edit-modal-form.owner-edit-pop{display:block!important;position:static!important;flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;max-height:none!important;padding:14px 16px calc(20px + env(safe-area-inset-bottom))!important;overscroll-behavior:contain!important;}
+  .owner-edit-modal .owner-edit-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:14px!important;padding-bottom:12px!important}
+  .owner-edit-modal .owner-edit-actions .danger-lite{display:block!important;grid-column:1 / -1!important;min-height:50px!important;visibility:visible!important;opacity:1!important}
+}
