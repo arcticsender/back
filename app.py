@@ -14,7 +14,8 @@ try:
 except ImportError:
     requests = None
 from html import escape
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, UTC, timedelta, timezone
+from csv import writer as csv_writer
 from functools import wraps
 from decimal import Decimal, ROUND_HALF_UP
 from base64 import urlsafe_b64encode
@@ -404,6 +405,16 @@ class SiteSetting(db.Model):
     key = db.Column(db.String(80), unique=True, nullable=False, index=True)
     value = db.Column(db.Text, nullable=False, default='')
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None))
+
+
+class GiveawayEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    campaign = db.Column(db.String(80), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    is_winner = db.Column(db.Boolean, nullable=False, default=False)
+    user = db.relationship('User', backref='giveaway_entries')
+    __table_args__ = (db.UniqueConstraint('campaign', 'user_id', name='uq_giveaway_campaign_user'),)
 
 
 class Notification(db.Model):
@@ -3275,6 +3286,199 @@ def cashout():
     mongo_backup_model(request_obj)
     flash(f'Cashout request created for {money(amount_cents)}. Fee: {money(fee_cents)}.', 'success')
     return redirect(url_for('dashboard'))
+
+
+# Giveaway dates are stored as UTC ISO-8601 strings. A new campaign key starts a new entry pool.
+GIVEAWAY_DEFAULT_RULES = """OFFICIAL GIVEAWAY RULES — REVIEW BEFORE PUBLISHING
+Sponsor: [Legal business / organizer name and mailing address].
+Eligibility: [Eligible countries/provinces/states], age [minimum age]. Void where prohibited. Open to eligible individual creators with a verified ArcticSender account. Employees and immediate family of the sponsor are not eligible.
+Entry period: The start and end times shown above are in UTC. One free entry per eligible creator account during the entry period. No purchase, gift, or payment is required. A purchase will not improve your chances of winning. Multiple accounts or fraudulent entries may be disqualified.
+Prize: One USD $100 prize [specify currency, payout method, any conversion, fees and restrictions]. One winner will be selected by the organizer (admin-selected) from eligible creator entries after closing. Selection criteria: [describe objective criteria used by organizer before entries open]. This is not a random draw.
+Winner contact: [How winner is contacted, deadline to respond, verification requirements, redraw policy].
+Privacy: Entry account information is used to administer this promotion. [Link to privacy policy and retention period].
+Additional conditions: [Skill-testing question requirement where applicable; publicity, taxes, dispute terms, platform disclaimers, full sponsor contact].
+This promotion is not sponsored, endorsed, administered by, or associated with X."""
+
+
+def giveaway_setting(key, default=''):
+    record = SiteSetting.query.filter_by(key='giveaway_' + key).first()
+    return record.value if record else default
+
+
+def giveaway_details():
+    def parse_utc(value):
+        try:
+            return datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(UTC) if value else None
+        except ValueError:
+            return None
+    start = parse_utc(giveaway_setting('starts_at'))
+    end = parse_utc(giveaway_setting('ends_at'))
+    now = datetime.now(UTC)
+    published = giveaway_setting('published') == 'true'
+    status = ('draft' if not published else 'upcoming' if start and now < start else 'open' if start and end and start <= now < end else 'closed')
+    return dict(title=giveaway_setting('title', '$100 Creator Giveaway'), subtitle=giveaway_setting('subtitle', 'Build your creator page. Enter free for a chance to win.'), prize=giveaway_setting('prize', '$100 USD'), campaign=giveaway_setting('campaign', 'creator-100-01'), starts_at=start, ends_at=end, status=status, published=published, selection_mode=giveaway_setting('selection_mode', 'admin'), rules=giveaway_setting('rules', GIVEAWAY_DEFAULT_RULES), eligibility=giveaway_setting('eligibility', 'See official rules for eligible locations and age requirements.'), winner=GiveawayEntry.query.filter_by(campaign=giveaway_setting('campaign', 'creator-100-01'), is_winner=True).first())
+
+
+@app.route('/giveaway')
+def giveaway():
+    details = giveaway_details()
+    entries = GiveawayEntry.query.filter_by(campaign=details['campaign']).count()
+    mine = bool(current_user() and GiveawayEntry.query.filter_by(campaign=details['campaign'], user_id=current_user().id).first())
+    return render_template('giveaway.html', giveaway=details, entry_count=entries, entered=mine)
+
+
+@app.route('/giveaway/enter', methods=['POST'])
+@login_required
+def giveaway_enter():
+    user = current_user()
+    info = giveaway_details()
+    if info['status'] != 'open':
+        flash('Entries are not currently open.', 'warning')
+    elif not user.email_verified or not user.is_creator or user.is_suspended or user.is_admin:
+        flash('A verified, eligible creator account is required to enter.', 'warning')
+    elif request.form.get('agree_rules') != 'on':
+        flash('Please read and accept the official giveaway rules.', 'warning')
+    elif GiveawayEntry.query.filter_by(campaign=info['campaign'], user_id=user.id).first():
+        flash('You have already entered this giveaway.', 'info')
+    else:
+        db.session.add(GiveawayEntry(campaign=info['campaign'], user_id=user.id))
+        try:
+            db.session.commit()
+            flash('Your free entry is confirmed. Good luck!', 'success')
+        except Exception:
+            db.session.rollback()
+            flash('Your entry may already exist. Please refresh the page.', 'warning')
+    return redirect(url_for('giveaway'))
+
+
+@app.route('/admin/giveaway', methods=['GET', 'POST'])
+@admin_required
+def admin_giveaway():
+    require_admin_permission('settings')
+    if request.method == 'POST':
+        def valid_date(raw):
+            return datetime.fromisoformat(raw.replace('Z', '+00:00')).astimezone(UTC)
+        start_text = request.form.get('starts_at', '').strip()
+        end_text = request.form.get('ends_at', '').strip()
+        try:
+            start, end = valid_date(start_text), valid_date(end_text)
+        except (ValueError, TypeError):
+            flash('Enter valid start and end dates with UTC offsets.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        if start >= end:
+            flash('End time must be later than start time.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        campaign = request.form.get('campaign', '').strip()
+        if not re.fullmatch(r'[a-zA-Z0-9_-]{3,80}', campaign):
+            flash('Campaign ID must be 3–80 letters, digits, underscores or hyphens.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        # Selection method is immutable once a campaign has been announced or entered.
+        previous_campaign = giveaway_setting('campaign', 'creator-100-01')
+        previous_mode = giveaway_setting('selection_mode', 'admin')
+        requested_mode = request.form.get('selection_mode', 'admin')
+        if requested_mode not in ('random', 'admin'):
+            flash('Choose a valid winner selection method.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        prior_entries = GiveawayEntry.query.filter_by(campaign=campaign).count()
+        same_campaign = campaign == previous_campaign
+        if (prior_entries or (same_campaign and giveaway_setting('published') == 'true')) and requested_mode != (previous_mode if same_campaign else 'admin'):
+            flash('Winner selection method is locked once published or entries exist. Start a new campaign before changing it.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        if requested_mode == 'admin':
+            ruletext = request.form.get('rules', '').lower()
+            if 'admin-selected' not in ruletext and 'selected by the organizer' not in ruletext:
+                flash('Admin-selected campaigns must explicitly disclose the selection method in the official rules.', 'danger')
+                return redirect(url_for('admin_giveaway'))
+        settings = {
+            'selection_mode': requested_mode,
+            'campaign': campaign,
+            'title': request.form.get('title','').strip()[:120],
+            'subtitle': request.form.get('subtitle','').strip()[:300],
+            'prize': request.form.get('prize','').strip()[:100],
+            'eligibility': request.form.get('eligibility','').strip()[:500],
+            'rules': request.form.get('rules','').strip()[:12000],
+            'starts_at': start.isoformat(),
+            'ends_at': end.isoformat(),
+            'published': 'true' if request.form.get('published') == 'on' else 'false',
+        }
+        if not all(settings[k] for k in ('title', 'prize', 'rules', 'eligibility')):
+            flash('Title, prize, eligibility and rules are required.', 'danger')
+            return redirect(url_for('admin_giveaway'))
+        for key, value in settings.items():
+            row = SiteSetting.query.filter_by(key='giveaway_'+key).first()
+            if row: row.value = value
+            else: db.session.add(SiteSetting(key='giveaway_'+key, value=value))
+        write_admin_audit('giveaway.settings', campaign, 'Campaign configuration updated')
+        db.session.commit()
+        flash('Giveaway configuration saved.', 'success')
+        return redirect(url_for('admin_giveaway'))
+    details = giveaway_details()
+    entries = GiveawayEntry.query.filter_by(campaign=details['campaign']).order_by(GiveawayEntry.created_at.desc()).all()
+    return render_template('admin_giveaway.html', giveaway=details, entries=entries)
+
+
+@app.route('/admin/giveaway/draw', methods=['POST'])
+@admin_required
+def admin_giveaway_draw():
+    require_admin_permission('settings')
+    details = giveaway_details()
+    if details['selection_mode'] != 'random' or details['status'] != 'closed' or details['winner'] or not details['ends_at'] or datetime.now(UTC) < details['ends_at']:
+        flash('Draw is available only after the published giveaway closes, and only once.', 'warning')
+        return redirect(url_for('admin_giveaway'))
+    candidates = GiveawayEntry.query.join(User, User.id == GiveawayEntry.user_id).filter(GiveawayEntry.campaign == details['campaign'], User.email_verified.is_(True), User.is_creator.is_(True), User.is_suspended.is_(False), User.is_admin.is_(False)).all()
+    if not candidates:
+        flash('No verified eligible creator entries are available.', 'warning')
+        return redirect(url_for('admin_giveaway'))
+    winner = secrets.choice(candidates)
+    winner.is_winner = True
+    write_admin_audit('giveaway.draw', details['campaign'], 'Selected entry ID ' + str(winner.id))
+    db.session.commit()
+    flash('A winner has been selected. Confirm eligibility and contact them privately before announcing.', 'success')
+    return redirect(url_for('admin_giveaway'))
+
+
+@app.route('/admin/giveaway/select', methods=['POST'])
+@admin_required
+def admin_giveaway_select():
+    require_admin_permission('settings')
+    details = giveaway_details()
+    if details['selection_mode'] != 'admin' or details['status'] != 'closed' or details['winner'] or not details['ends_at'] or datetime.now(UTC) < details['ends_at']:
+        flash('Manual selection is only available for a closed admin-selected campaign without a winner.', 'warning')
+        return redirect(url_for('admin_giveaway'))
+    try:
+        entry_id = int(request.form.get('entry_id', ''))
+    except (ValueError, TypeError):
+        flash('Enter a valid entry ID.', 'danger')
+        return redirect(url_for('admin_giveaway'))
+    entry = GiveawayEntry.query.join(User, User.id == GiveawayEntry.user_id).filter(
+        GiveawayEntry.id == entry_id, GiveawayEntry.campaign == details['campaign'],
+        User.email_verified.is_(True), User.is_creator.is_(True),
+        User.is_suspended.is_(False), User.is_admin.is_(False)).first()
+    if not entry:
+        flash('That entry is not eligible for this campaign.', 'danger')
+        return redirect(url_for('admin_giveaway'))
+    entry.is_winner = True
+    write_admin_audit('giveaway.admin_selected', details['campaign'], 'Organizer selected entry ID ' + str(entry.id))
+    db.session.commit()
+    flash('Winner selected and audit logged. Confirm eligibility before announcing.', 'success')
+    return redirect(url_for('admin_giveaway'))
+
+
+@app.route('/admin/giveaway/export')
+@admin_required
+def admin_giveaway_export():
+    require_admin_permission('settings')
+    from csv import writer
+    info = giveaway_details()
+    buf = io.StringIO()
+    csv = writer(buf)
+    csv.writerow(['entry_id','campaign','username','email','email_verified','entered_utc','winner'])
+    for entry in GiveawayEntry.query.filter_by(campaign=info['campaign']).order_by(GiveawayEntry.id.asc()).all():
+        csv.writerow([entry.id, entry.campaign, entry.user.username, entry.user.email, entry.user.email_verified, entry.created_at.isoformat(), entry.is_winner])
+    response = Response(buf.getvalue(), mimetype='text/csv')
+    response.headers['Content-Disposition'] = 'attachment; filename="giveaway-entries.csv"'
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @app.route('/admin')

@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}{{ giveaway.title }} | {{ site_name }}{% endblock %}
+{% block content %}
+<div class="gw-shell">
+  <section class="gw-hero">
+    <span class="gw-eyebrow">✦ FOR CREATORS · FREE TO ENTER</span>
+    <h1>{{ giveaway.title }}</h1>
+    <p class="gw-subtitle">{{ giveaway.subtitle }}</p>
+    <div class="gw-prize"><span>WE’RE SELECTING 1 WINNER</span><strong>{{ giveaway.prize }}</strong><small>No purchase necessary</small></div>
+    {% if giveaway.published and giveaway.ends_at %}
+    <div class="gw-clock" id="giveaway-countdown" data-start="{{ giveaway.starts_at.isoformat() if giveaway.starts_at else '' }}" data-end="{{ giveaway.ends_at.isoformat() }}">
+      <div><strong data-days>--</strong><span>Days</span></div><div><strong data-hours>--</strong><span>Hours</span></div><div><strong data-minutes>--</strong><span>Minutes</span></div><div><strong data-seconds>--</strong><span>Seconds</span></div>
+    </div>
+    {% endif %}
+    <p class="gw-state"><strong>We’re selecting 1 winner.</strong> {{ "The organizer will select an eligible creator according to the published official rules." if giveaway.selection_mode == "admin" else "The winner will be chosen by a random draw from eligible entries." }}</p>
+    <p class="gw-state">{% if giveaway.status == 'open' %}● Entries are open{% elif giveaway.status == 'upcoming' %}Entries open soon{% elif giveaway.status == 'closed' %}Entries have closed{% else %}This giveaway is not open yet{% endif %}</p>
+    <div class="gw-actions">
+      {% if entered %}<div class="gw-confirm">✓ You're entered! Your entry is recorded.</div>
+      {% elif giveaway.status == 'open' and current_user and current_user.email_verified and current_user.is_creator and not current_user.is_suspended and not current_user.is_admin %}
+        <form method="post" action="{{ url_for('giveaway_enter') }}" class="gw-enter-form"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label class="gw-check"><input type="checkbox" name="agree_rules" required> I've read and agree to the <a href="#giveaway-rules">official rules</a> and meet the eligibility criteria.</label><button class="btn gw-cta" type="submit">Enter giveaway free →</button></form>
+      {% elif giveaway.status == 'open' and not current_user %}<a class="btn gw-cta" href="{{ url_for('register', next=url_for('giveaway')) }}">Create a creator account to enter →</a><a class="gw-secondary" href="{{ url_for('login', next=url_for('giveaway')) }}">Already a creator? Sign in</a>
+      {% elif giveaway.status == 'open' and current_user and not current_user.email_verified %}<p>Verify your account email before entering.</p>
+      {% elif giveaway.status == 'open' %}<p>Only eligible, verified creator accounts can enter.</p>
+      {% endif %}
+    </div>
+  </section>
+  <section class="gw-steps" aria-label="How to enter"><h2>How to enter</h2><div class="gw-steps-grid"><article><span>01</span><h3>Create your page</h3><p>Register for your free ArcticSender creator account.</p></article><article><span>02</span><h3>Verify your email</h3><p>Complete account verification so we can confirm your entry.</p></article><article><span>03</span><h3>Enter for free</h3><p>Accept the official rules and submit one entry. No gifts or purchases needed.</p></article></div></section>
+  <section class="gw-info"><div><h2>Giveaway details</h2><p><strong>Prize:</strong> {{ giveaway.prize }}</p><p><strong>Eligibility:</strong> {{ giveaway.eligibility }}</p><p><strong>Entries received:</strong> {{ entry_count }}</p><p><strong>Opens:</strong> {{ giveaway.starts_at.strftime('%B %d, %Y %H:%M UTC') if giveaway.starts_at else 'To be announced' }}</p><p><strong>Closes:</strong> {{ giveaway.ends_at.strftime('%B %d, %Y %H:%M UTC') if giveaway.ends_at else 'To be announced' }}</p></div><div class="gw-info-note">This giveaway is for creators who want to build their own gifting page. Sharing on social media is appreciated but is not required to enter.</div></section>
+  <section id="giveaway-rules" class="gw-rules"><h2>Official giveaway rules</h2><div class="gw-rules-body">{{ giveaway.rules }}</div><p class="muted">For questions about the promotion, use the site's support page. These rules are controlled by the giveaway organizer.</p></section>
+</div>
+<script>
+(function(){let e=document.getElementById('giveaway-countdown');if(!e)return;let start=Date.parse(e.dataset.start),end=Date.parse(e.dataset.end);function update(){let now=Date.now(),target=now<start?start:end,delta=Math.max(0,Math.floor((target-now)/1000));let vals=[Math.floor(delta/86400),Math.floor(delta%86400/3600),Math.floor(delta%3600/60),delta%60];['days','hours','minutes','seconds'].forEach((k,i)=>{let n=e.querySelector('[data-'+k+']');if(n)n.textContent=String(vals[i]).padStart(2,'0')});}update();setInterval(update,1000)})();
+</script>
+{% endblock %}

@@ -2,6 +2,7 @@
 {% block title %}{{ site_name }} | Better Creator Cash Gifts Than Throne-Style Wishlists{% endblock %}
 {% block meta_description %}Create a premium creator cash gift page with wishlist items, carts, private sender details, website balances and bank cashouts, and a cleaner experience built to feel better than Throne.{% endblock %}
 {% block content %}
+{% if public_setting('giveaway_published') == 'true' %}<div class="gw-home-promo"><span>🎉 Creator giveaway is live</span><a href="{{ url_for('giveaway') }}">Enter for a chance to win →</a></div>{% endif %}
 <section class="hero section home-hero-clean">
   <div class="hero-copy">
     <img class="hero-brand-logo" src="{{ url_for('static', filename='img/logo-app-icon.png') }}" alt="ArcticSender logo">

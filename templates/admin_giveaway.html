@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Giveaway manager | {{ site_name }}{% endblock %}
+{% block content %}
+<section class="section page-head"><div><div class="pill">Admin / Promotions</div><h1>Giveaway manager</h1><p>Manage your one-winner creator giveaway, countdown, selection method, rules and entries from one place.</p></div><div class="head-actions"><a class="btn ghost" href="{{ url_for('admin') }}">← Admin</a><a class="btn ghost" href="{{ url_for('giveaway') }}">Preview page</a></div></section>
+<div class="gw-admin-layout section">
+<section class="panel gw-admin-panel"><h2>Campaign setup</h2><p class="muted">All dates must include an offset, e.g. 2026-11-15T17:00:00+00:00 (UTC). Changing the campaign ID starts a separate entry pool; reuse the ID to retain entries.</p>
+<form method="post" class="gw-admin-form"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+<label>Campaign ID<input required pattern="[A-Za-z0-9_-]{3,80}" maxlength="80" name="campaign" value="{{ giveaway.campaign }}"></label>
+<label>Headline<input name="title" maxlength="120" required value="{{ giveaway.title }}"></label>
+<label>Supporting text<textarea name="subtitle" maxlength="300" rows="2">{{ giveaway.subtitle }}</textarea></label>
+<label>Prize label<input name="prize" maxlength="100" required value="{{ giveaway.prize }}"></label>
+<div class="gw-admin-two"><label>Start (ISO date and timezone)<input name="starts_at" required placeholder="2026-11-01T12:00:00+00:00" value="{{ giveaway.starts_at.isoformat() if giveaway.starts_at else '' }}"></label><label>End (ISO date and timezone)<input name="ends_at" required placeholder="2026-11-15T12:00:00+00:00" value="{{ giveaway.ends_at.isoformat() if giveaway.ends_at else '' }}"></label></div>
+<label>Eligibility summary<textarea name="eligibility" maxlength="500" rows="2" required>{{ giveaway.eligibility }}</textarea></label>
+<label>Winner selection method
+<select name="selection_mode" {% if entries or giveaway.published %}disabled{% endif %}>
+<option value="random" {% if giveaway.selection_mode == 'random' %}selected{% endif %}>Random draw</option>
+<option value="admin" {% if giveaway.selection_mode == 'admin' %}selected{% endif %}>Admin-selected winner (default; disclosed publicly)</option>
+</select></label>
+{% if entries or giveaway.published %}<input type="hidden" name="selection_mode" value="{{ giveaway.selection_mode }}"><p class="muted">Selection method locked for this campaign. Create a new unpublished campaign to change it.</p>{% endif %}
+<p class="muted">If selecting a winner manually, edit the official rules to explicitly say “admin-selected” or “selected by the organizer” and explain the selection criteria. Do not describe manual selection as random.</p>
+<label>Official rules <small>(review and replace bracketed fields before publishing)</small><textarea name="rules" rows="18" maxlength="12000" required>{{ giveaway.rules }}</textarea></label>
+<label class="gw-check"><input type="checkbox" name="published" {% if giveaway.published %}checked{% endif %}> Publish giveaway (schedule controls when entries are allowed)</label>
+<button class="btn" type="submit">Save giveaway</button></form></section>
+<aside class="gw-admin-side"><section class="panel gw-admin-panel"><h2>Entry overview</h2><div class="gw-number">{{ entries|length }}</div><p class="muted">Entries for campaign <strong>{{ giveaway.campaign }}</strong></p><p>Status: <strong>{{ giveaway.status|title }}</strong></p><a class="btn ghost full" href="{{ url_for('admin_giveaway_export') }}">Export entries (CSV)</a></section>
+<section class="panel gw-admin-panel"><h2>Winner selection</h2>{% if giveaway.winner %}<p>Winner entry: <strong>#{{ giveaway.winner.id }}</strong></p><p>Creator: <strong>@{{ giveaway.winner.user.username }}</strong></p><p>Email: {{ giveaway.winner.user.email }}</p><p class="muted">Verify eligibility and contact privately before announcing.</p>{% else %}{% if giveaway.selection_mode == 'admin' %}<p>Admin selection is disclosed on the public giveaway page. Choose an eligible entry ID after closing; the selection is recorded in the audit log.</p>
+<form method="post" action="{{ url_for('admin_giveaway_select') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label>Eligible entry ID <input type="number" min="1" step="1" name="entry_id" required placeholder="Entry ID from table below"></label><button class="btn full" {% if giveaway.status != 'closed' or not entries %}disabled{% endif %} onclick="return confirm('Confirm this publicly disclosed organizer selection? This cannot be repeated.')">Select winner</button></form>
+{% else %}<p>Random draw becomes available after the published campaign closes. Verified, unsuspended creator accounts only.</p><form method="post" action="{{ url_for('admin_giveaway_draw') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn full" {% if giveaway.status != 'closed' or not entries %}disabled{% endif %} onclick="return confirm('Select a winner randomly? This action is recorded and cannot be repeated for this campaign.')">Draw winner</button></form>{% endif %}{% endif %}</section>
+<section class="panel gw-admin-panel"><h2>Launch checklist</h2><p>Before publishing, specify organizer identity, eligible regions, age, start/end time, USD prize delivery, privacy, winner contact, and local legal requirements. Verify sweepstakes regulations with qualified counsel.</p><p class="muted">No purchase or repost is required. Winner selection does not automatically send funds.</p></section></aside>
+</div>
+<section class="section"><div class="section-head"><h2>Recent entries</h2></div><div class="table panel admin-table"><table><tr><th>Entry</th><th>Creator</th><th>Verified</th><th>Entered (UTC)</th><th>Result</th></tr>{% for entry in entries[:100] %}<tr><td>#{{ entry.id }}</td><td>@{{ entry.user.username }}</td><td>{{ 'Yes' if entry.user.email_verified else 'No' }}</td><td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ 'Winner' if entry.is_winner else 'Entered' }}</td></tr>{% else %}<tr><td colspan="5">No entries yet.</td></tr>{% endfor %}</table></div></section>
+{% endblock %}
