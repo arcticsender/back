@@ -28,7 +28,7 @@
   <meta name="twitter:title" content="{{ self.title()|striptags|trim }}">
   <meta name="twitter:description" content="{{ self.meta_description()|striptags|trim }}">
   <meta name="twitter:image" content="{{ self.og_image()|striptags|trim }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='mobile-refresh-20261031-2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='mobile-first-20261031-1') }}">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"WebSite","name":"{{ site_name }}","url":"{{ request.url_root.rstrip('/') }}","description":"Cleaner creator cash gifts, wishlist carts, private checkout, and creator cashouts.","potentialAction":{"@type":"RegisterAction","target":"{{ url_for('register', _external=True) }}"}}
@@ -63,18 +63,23 @@
         <a class="btn btn-small" href="{{ url_for('register') }}">Start free</a>
       {% endif %}
     </nav>
-    <div class="mobile-top-actions" aria-label="Mobile quick actions">
+    <div class="mobile-top-actions" aria-label="Quick actions">
       {% if current_user %}
-        <a class="mobile-cart-btn" href="{{ cart_url }}" aria-label="Open cart"><svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2Zm10 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM5.25 5.2h15.1l-1.45 7.15a2.35 2.35 0 0 1-2.3 1.88H8.15a2.35 2.35 0 0 1-2.31-1.94L4.63 3.9H2.5a.9.9 0 0 1 0-1.8h2.9c.45 0 .83.33.9.78l.95 2.32Zm.32 1.8 1.03 5.01c.15.72.78 1.24 1.55 1.24h8.45c.76 0 1.41-.53 1.56-1.27L19.16 7H5.57Z"/></svg>{% if cart_count %}<b>{{ cart_count }}</b>{% endif %}</a>
-        <span class="mobile-balance-pill" title="Balance">{{ money(current_user.balance_cents) }}</span>
-      {% else %}
-        <a class="mobile-cart-btn" href="{{ cart_url }}" aria-label="Open cart"><svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2Zm10 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2ZM5.25 5.2h15.1l-1.45 7.15a2.35 2.35 0 0 1-2.3 1.88H8.15a2.35 2.35 0 0 1-2.31-1.94L4.63 3.9H2.5a.9.9 0 0 1 0-1.8h2.9c.45 0 .83.33.9.78l.95 2.32Zm.32 1.8 1.03 5.01c.15.72.78 1.24 1.55 1.24h8.45c.76 0 1.41-.53 1.56-1.27L19.16 7H5.57Z"/></svg>{% if cart_count %}<b>{{ cart_count }}</b>{% endif %}</a>
-        <a class="mobile-auth-btn" href="{{ url_for('login') }}">Sign in</a>
-      {% endif %}
-      <button class="mobile-menu-btn" type="button" aria-label="Open menu" aria-controls="mobile-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
+      <button class="mobile-icon-action mobile-alert-trigger" type="button" aria-label="Notifications{% if notification_unread_count %}, {{ notification_unread_count }} unread{% endif %}" aria-controls="mobile-notification-panel" aria-expanded="false" data-toggle-notifications>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>{% if notification_unread_count %}<span class="mobile-alert-dot"></span>{% endif %}
+      </button>
+      {% else %}<a class="mobile-signin" href="{{ url_for('login') }}">Sign in</a>{% endif %}
+      <button class="mobile-icon-action mobile-menu-btn" type="button" aria-label="Open navigation" aria-controls="mobile-drawer" aria-expanded="false"><span></span><span></span><span></span></button>
     </div>
   </header>
 
+  {% if current_user %}
+  <section id="mobile-notification-panel" class="mobile-notification-panel" aria-label="Notifications" aria-hidden="true" inert>
+    <div class="mobile-notification-head"><div><span class="mobile-kicker">YOUR INBOX</span><strong>Notifications</strong></div><button type="button" class="mobile-notification-close" data-close-notifications aria-label="Close notifications">×</button></div>
+    <p class="mobile-notification-description">{% if notification_unread_count %}You have {{ notification_unread_count }} unread update{% if notification_unread_count != 1 %}s{% endif %}.{% else %}You're all caught up.{% endif %}</p>
+    <a class="mobile-notification-view" href="{{ url_for('notifications') }}">View notification center <span aria-hidden="true">→</span></a>
+  </section>
+  {% endif %}
   <div class="mobile-drawer-backdrop" data-close-mobile-menu></div>
   <aside id="mobile-drawer" class="mobile-drawer" aria-hidden="true">
     <div class="drawer-head">
@@ -103,6 +108,15 @@
     {% endif %}
   </aside>
 
+  {% if current_user %}
+  <nav class="mobile-bottom-nav" aria-label="Primary mobile navigation">
+    <a href="{{ url_for('dashboard') }}" class="mobile-tab {% if request.endpoint == 'dashboard' %}active{% endif %}" {% if request.endpoint == 'dashboard' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Home</span></a>
+    <a href="{{ url_for('profile', username=current_user.username) }}" class="mobile-tab {% if request.endpoint == 'profile' %}active{% endif %}" {% if request.endpoint == 'profile' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/></svg><span>My page</span></a>
+    <a href="{{ cart_url }}" class="mobile-tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.3 11h11.6l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><span>Cart{% if cart_count %} ({{ cart_count }}){% endif %}</span></a>
+    <a href="{{ url_for('notifications') }}" class="mobile-tab {% if request.endpoint == 'notifications' %}active{% endif %}" {% if request.endpoint == 'notifications' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"/><path d="M8 9h8M8 13h5"/></svg><span>Inbox{% if notification_unread_count %}<i aria-label="Unread notifications"></i>{% endif %}</span></a>
+    <a href="{{ url_for('settings') }}" class="mobile-tab {% if request.endpoint == 'settings' %}active{% endif %}" {% if request.endpoint == 'settings' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg><span>Settings</span></a>
+  </nav>
+  {% endif %}
   <main id="main-content" tabindex="-1">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -126,7 +140,7 @@
       <a href="mailto:support@arcticsender.com">Contact</a>
     </div>
   </footer>
-  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/app.js', v='mobile-first-20261031-1') }}" defer></script>
   <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('{{ url_for("service_worker") }}').catch(() => {}));</script>
 </body>
 </html>

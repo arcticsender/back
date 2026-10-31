@@ -274,3 +274,16 @@ document.addEventListener('click', async (event) => {
     try { sessionStorage.setItem(key, message); } catch (_) {}
   });
 })();
+
+// Mobile notification popover: accessible state, outside-click dismissal and Escape.
+(() => {
+ const panel=document.getElementById('mobile-notification-panel');
+ const trigger=document.querySelector('[data-toggle-notifications]');
+ if(!panel||!trigger)return;
+ const close=()=>{panel.classList.remove('is-open');panel.setAttribute('aria-hidden','true');panel.inert=true;trigger.setAttribute('aria-expanded','false');};
+ const open=()=>{document.body.classList.remove('mobile-menu-open');document.querySelector('.mobile-menu-btn')?.setAttribute('aria-expanded','false');document.getElementById('mobile-drawer')?.setAttribute('aria-hidden','true');panel.inert=false;panel.classList.add('is-open');panel.setAttribute('aria-hidden','false');trigger.setAttribute('aria-expanded','true');panel.querySelector('[data-close-notifications]')?.focus();};
+ trigger.addEventListener('click',()=>panel.classList.contains('is-open')?close():open());
+ panel.querySelector('[data-close-notifications]')?.addEventListener('click',()=>{close();trigger.focus();});
+ document.addEventListener('pointerdown',e=>{if(!panel.contains(e.target)&&!trigger.contains(e.target))close();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('is-open')){close();trigger.focus();}});
+})();
