@@ -21,6 +21,7 @@
       <form class="gift-sort-form" method="post" action="{{ url_for('update_gift_sort', username=creator.username) }}">
         <label>Wishlist order</label>
         <select name="gift_sort" onchange="this.form.submit()">
+          <option value="custom" {% if creator.gift_sort == 'custom' %}selected{% endif %}>Custom order (my arrangement)</option>
           <option value="recent" {% if creator.gift_sort == 'recent' %}selected{% endif %}>Most recent</option>
           <option value="highest" {% if creator.gift_sort == 'highest' %}selected{% endif %}>Highest price</option>
           <option value="lowest" {% if creator.gift_sort == 'lowest' %}selected{% endif %}>Lowest price</option>
@@ -53,18 +54,18 @@
         <div class="section-head clean-head"><div><span class="pill">Wishlist</span><h2>Cash gifts</h2></div><span>{{ items|length }} active</span></div>
         {% if items %}
         <div class="gift-discovery" data-gift-discovery>
-          <label class="gift-search"><span class="visually-hidden">Search gifts</span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input type="search" data-gift-search placeholder="Find a gift..." autocomplete="off" aria-label="Search wishlist gifts"></label>
+          <label class="gift-search"><span class="visually-hidden">Search gifts</span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input type="search" data-gift-search placeholder="Search gifts by name or description…" autocomplete="off" aria-label="Search wishlist gifts"></label>
           <div class="gift-filter-row" role="group" aria-label="Filter gifts">
             <button class="gift-filter is-active" type="button" data-gift-filter="all" aria-pressed="true">All gifts</button>
             <button class="gift-filter" type="button" data-gift-filter="single" aria-pressed="false">Gifts</button>
             <button class="gift-filter" type="button" data-gift-filter="goal" aria-pressed="false">Goals</button>
           </div>
-          <p class="gift-result-count" data-gift-count role="status" aria-live="polite"></p>
+          <div class="gift-discovery-bottom"><p class="gift-result-count" data-gift-count role="status" aria-live="polite"></p><label class="gift-sort-client">Sort by <select data-gift-client-sort aria-label="Sort displayed gifts"><option value="default">Creator order</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Gift name</option><option value="goal-progress">Goals: closest to finished</option></select></label></div>
         </div>
         {% endif %}
         <div class="grid cards-grid creator-cards" data-gift-grid>
           {% for item in items %}
-            <div class="owner-card-wrap" data-gift-entry data-gift-kind="{{ item.gift_type }}" data-gift-title="{{ (item.title ~ ' ' ~ item.description)|lower|e }}">
+            <div class="owner-card-wrap" data-gift-entry data-gift-kind="{{ item.gift_type }}" data-gift-price="{{ item.price_cents }}" data-gift-progress="{{ item.progress if item.gift_type == 'goal' else -1 }}" data-gift-title="{{ (item.title ~ ' ' ~ item.description)|lower|e }}">
               {% include 'partials/item_card.html' %}
             </div>
           {% else %}

@@ -223,42 +223,68 @@ document.addEventListener('click', async (event) => {
 });
 
 
-// Accessible drag-and-drop wishlist ordering with server-side ownership validation.
+// Owner-controlled custom order: desktop drag, keyboard arrows, and mobile buttons.
 (() => {
   const table = document.querySelector('[data-wishlist-sort]');
   if (!table) return;
-  let dragged = null;
+  const feedback = document.querySelector('[data-order-feedback]');
   const rows = () => [...table.querySelectorAll('tr[data-item-id]')];
+  let dragged = null;
+  let saving = false;
+  const setFeedback = message => { if (feedback) feedback.textContent = message; };
+  const save = async () => {
+    if (saving) return;
+    saving = true;
+    const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const ids = rows().map(row => Number(row.dataset.itemId));
+    setFeedback('Saving custom gift order…');
+    try {
+      const response = await fetch('/wishlist/reorder', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type':'application/json','X-CSRF-Token':token},
+        body: JSON.stringify({item_ids:ids})
+      });
+      if (!response.ok) throw new Error('Could not save gift order');
+      setFeedback('Custom order saved. Your public wishlist now uses this arrangement.');
+      table.closest('.table')?.classList.add('order-saved');
+    } catch (_) {
+      setFeedback('Could not save the order. Refresh the page and try again.');
+    } finally { saving = false; }
+  };
+  const move = (row, direction) => {
+    if (saving) return;
+    const items = rows(), index = items.indexOf(row);
+    const target = items[index + direction];
+    if (!target) return;
+    row.parentNode.insertBefore(row, direction < 0 ? target : target.nextSibling);
+    save();
+  };
   rows().forEach(row => {
-    row.addEventListener('dragstart', event => { dragged = row; row.classList.add('is-dragging'); event.dataTransfer.effectAllowed = 'move'; });
-    row.addEventListener('dragend', async () => {
+    row.querySelectorAll('[data-move]').forEach(button => {
+      button.addEventListener('click', () => move(row, button.dataset.move === 'up' ? -1 : 1));
+    });
+    row.addEventListener('dragstart', event => {
+      if (saving) { event.preventDefault(); return; }
+      dragged = row; row.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => {
       row.classList.remove('is-dragging');
       if (!dragged) return;
-      dragged = null;
-      const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
-      const ids = rows().map(item => Number(item.dataset.itemId));
-      try {
-        const response = await fetch('/wishlist/reorder', { method: 'POST', headers: {'Content-Type':'application/json','X-CSRF-Token':token}, body: JSON.stringify({item_ids: ids}) });
-        if (!response.ok) throw new Error('Save failed');
-        table.closest('.table')?.classList.add('order-saved');
-      } catch (_) { window.location.reload(); }
+      dragged = null; save();
     });
     row.addEventListener('dragover', event => {
       if (!dragged || dragged === row) return;
       event.preventDefault();
       const rect = row.getBoundingClientRect();
-      const after = event.clientY > rect.top + rect.height / 2;
-      row.parentNode.insertBefore(dragged, after ? row.nextSibling : row);
+      row.parentNode.insertBefore(dragged, event.clientY > rect.top + rect.height / 2 ? row.nextSibling : row);
     });
     row.addEventListener('keydown', event => {
-      if (!['ArrowUp','ArrowDown'].includes(event.key)) return;
-      const siblings = rows(); const index = siblings.indexOf(row);
-      const target = siblings[index + (event.key === 'ArrowUp' ? -1 : 1)];
-      if (!target) return; event.preventDefault();
-      row.parentNode.insertBefore(row, event.key === 'ArrowUp' ? target : target.nextSibling);
-      row.dispatchEvent(new Event('dragend'));
+      if (!['ArrowUp','ArrowDown'].includes(event.key) || !event.altKey) return;
+      event.preventDefault(); move(row, event.key === 'ArrowUp' ? -1 : 1);
     });
-    row.tabIndex = 0; row.setAttribute('aria-label', 'Wishlist item. Use arrow keys to reorder.');
+    row.tabIndex = 0;
+    row.setAttribute('aria-label', 'Gift row. Use Alt plus arrow keys to reorder.');
   });
 })();
 
@@ -295,6 +321,9 @@ document.addEventListener('click', async (event) => {
  const filters=[...root.querySelectorAll('[data-gift-filter]')];
  const entries=[...document.querySelectorAll('[data-gift-entry]')];
  const count=root.querySelector('[data-gift-count]');
+ const sort=root.querySelector('[data-gift-client-sort]');
+ const grid=document.querySelector('[data-gift-grid]');
+ const originalOrder=new Map(entries.map((entry,index)=>[entry,index]));
  const empty=document.querySelector('[data-gift-empty]');
  let active='all';
  const update=()=>{
@@ -303,8 +332,66 @@ document.addEventListener('click', async (event) => {
   if(count)count.textContent=`${visible} ${visible===1?'gift':'gifts'} shown`;
   if(empty)empty.hidden=visible!==0;
  };
+ const sortGifts=()=>{
+  if(!sort||!grid)return;
+  const ordered=[...entries].sort((a,b)=>{
+   if(sort.value==='price-low')return Number(a.dataset.giftPrice)-Number(b.dataset.giftPrice);
+   if(sort.value==='price-high')return Number(b.dataset.giftPrice)-Number(a.dataset.giftPrice);
+   if(sort.value==='name')return (a.dataset.giftTitle||'').localeCompare(b.dataset.giftTitle||'');
+   if(sort.value==='goal-progress')return Number(b.dataset.giftProgress)-Number(a.dataset.giftProgress);
+   return originalOrder.get(a)-originalOrder.get(b);
+  });
+  ordered.forEach(entry=>grid.appendChild(entry));
+ };
+ sort?.addEventListener('change',sortGifts);
  search.addEventListener('input',update);
  filters.forEach(button=>button.addEventListener('click',()=>{active=button.dataset.giftFilter;filters.forEach(option=>{const selected=option===button;option.classList.toggle('is-active',selected);option.setAttribute('aria-pressed',String(selected));});update();}));
  document.querySelector('[data-gift-reset]')?.addEventListener('click',()=>{search.value='';filters[0]?.click();search.focus();});
  update();
 })();
+
+// Localized display for UTC campaign timestamps; server remains the authority.
+document.querySelectorAll('[data-local-datetime]').forEach(node => {
+ const input=node.dataset.localDatetime; if(!input)return;
+ const date=new Date(input); if(Number.isNaN(date.getTime()))return;
+ node.dateTime=date.toISOString();
+ node.textContent=new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short',timeZoneName:'short'}).format(date);
+});
+// Confirm destructive user actions without intercepting payment or checkout forms.
+document.querySelectorAll('form[data-confirm-submit]').forEach(form=>{
+ form.addEventListener('submit', event=>{if(!window.confirm(form.dataset.confirmSubmit||'Are you sure?'))event.preventDefault();});
+});
+
+
+// Fast, local-only gift management filtering. No payment or server requests.
+(() => {
+  const search=document.querySelector('[data-dashboard-gift-search]');
+  const status=document.querySelector('[data-dashboard-gift-status]');
+  if(!search||!status)return;
+  const rows=[...document.querySelectorAll('[data-dashboard-gift-row]')];
+  const count=document.querySelector('[data-dashboard-gift-count]');
+  const empty=document.querySelector('[data-dashboard-gift-empty]');
+  const update=()=>{
+    const term=search.value.trim().toLocaleLowerCase(); let visible=0;
+    for(const row of rows){
+      const matched=(!term||row.dataset.giftName.includes(term)) && (status.value==='all'||row.dataset.giftVisibility===status.value);
+      row.hidden=!matched;
+      if(matched)visible++;
+    }
+    if(count)count.textContent=`${visible} of ${rows.length} gifts`;
+    if(empty)empty.hidden=visible!==0;
+  };
+  search.addEventListener('input',update);
+  status.addEventListener('change',update);
+  update();
+})();
+
+// Progressive enhancement: native sharing on supported mobile devices.
+// Existing clipboard buttons continue to work without Web Share support.
+document.querySelectorAll('[data-native-share]').forEach(button => {
+  if(!navigator.share){button.hidden=true;return;}
+  button.addEventListener('click', async () => {
+    try { await navigator.share({title:button.dataset.shareTitle||document.title,url:button.dataset.shareUrl||location.href}); }
+    catch(error) { if(error?.name!=='AbortError') console.warn('Share unavailable'); }
+  });
+});

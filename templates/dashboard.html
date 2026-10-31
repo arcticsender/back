@@ -8,10 +8,9 @@
     <p>Manage your gifts, balance, cashouts, and creator page.</p>
   </div>
   <div class="head-actions">
-    <a class="btn ghost" href="{{ url_for('creator_analytics') }}">Creator analytics</a>
-    <a class="btn ghost" href="{{ url_for('profile_settings') }}">Edit profile</a>
-    <a class="btn ghost" href="{{ url_for('settings') }}">Settings</a>
-    <a class="btn" href="{{ url_for('new_item') }}">Add cash gift</a>
+    <a class="btn" href="{{ url_for('new_item') }}">+ Add gift</a>
+    <a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}">View my page</a>
+    <details class="dashboard-more-actions"><summary class="btn ghost">More tools <span aria-hidden="true">⌄</span></summary><div class="dashboard-more-links"><a href="{{ url_for('creator_analytics') }}">Creator analytics</a><a href="{{ url_for('profile_settings') }}">Edit profile</a><a href="{{ url_for('settings') }}">Settings & payouts</a></div></details>
   </div>
 </section>
 
@@ -31,6 +30,15 @@
   </div>
 </section>
 
+<section class="section creator-command-bar" aria-label="Creator shortcuts">
+  <div class="creator-shortcut-intro"><span class="pill">Creator workspace</span><h2>Make sharing easy</h2><p class="muted">Your page is ready for supporters. Share it or jump straight to managing gifts.</p></div>
+  <div class="creator-shortcut-actions">
+    <button type="button" class="btn" data-copy-text="{{ request.url_root.rstrip('/') }}{{ url_for('profile', username=current_user.username) }}">Copy creator link</button>
+    <a class="btn ghost" href="{{ url_for('profile', username=current_user.username) }}#wishlist">Preview wishlist</a>
+    <a class="btn ghost" href="{{ url_for('creator_analytics') }}">View analytics</a>
+    <button type="button" class="btn ghost" data-native-share data-share-title="Support my creator wishlist" data-share-url="{{ request.url_root.rstrip('/') }}{{ url_for('profile', username=current_user.username) }}" hidden>Share page</button>
+  </div>
+</section>
 <section class="section split-cards">
   <div class="feature-card balance">
     <h3>{{ money(current_user.balance_cents) }}</h3>
@@ -78,8 +86,9 @@
 </section>
 
 <section class="section">
-  <div class="section-head"><div><h2>Your cash gift items</h2><p class="muted">Drag items to change how they appear on your public wishlist.</p></div><a href="{{ url_for('profile', username=current_user.username) }}">View public page</a></div>
-  <div class="table panel frost-card"><table data-wishlist-sort><tr><th>Order</th><th>Gift</th><th>Type</th><th>Amount</th><th>Progress / stock</th><th>Status</th><th></th></tr>{% for item in items %}<tr draggable="true" data-item-id="{{ item.id }}"><td><span class="drag-handle" aria-label="Drag to reorder" title="Drag to reorder">⠿</span></td><td>{{ item.title }}</td><td>{{ item.type_label }}</td><td>{{ money(item.price_cents) }}</td><td>{% if item.gift_type == 'goal' %}{{ item.progress }}%{% else %}{{ item.sold_count }}/{{ item.stock_limit }} sold{% endif %}</td><td>{% if item.is_active %}Active{% else %}Hidden{% endif %}</td><td class="right"><a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a><form method="post" action="{{ url_for('delete_item', item_id=item.id) }}" class="inline"><button>Delete</button></form></td></tr>{% else %}<tr><td colspan="7">No cash gifts yet.</td></tr>{% endfor %}</table></div>
+  <div class="section-head"><div><h2>Your cash gift items</h2><p class="muted">Set your public wishlist order. Drag gifts on desktop or use the arrows on mobile; saving switches your page to Custom order.</p></div><a href="{{ url_for('profile', username=current_user.username) }}">View public page</a></div>
+  {% if items %}<p class="muted order-feedback" data-order-feedback role="status" aria-live="polite">Current public order: {{ {'custom': 'Custom', 'recent': 'Most recent', 'highest': 'Highest price', 'lowest': 'Lowest price'}.get(current_user.gift_sort, 'Most recent') }}. Rearrange any gift to activate Custom.</p><div class="dashboard-gift-controls"><label class="dashboard-gift-search"><span class="visually-hidden">Find a gift to manage</span><input type="search" data-dashboard-gift-search placeholder="Search your gifts…" aria-label="Search your gifts"></label><label class="dashboard-gift-status-label">Show <select data-dashboard-gift-status aria-label="Filter your gifts"><option value="all">All gifts</option><option value="active">Active</option><option value="hidden">Hidden</option></select></label><span data-dashboard-gift-count aria-live="polite"></span></div>{% endif %}
+  <div class="table panel frost-card dashboard-gifts-table"><table data-wishlist-sort><tr><th>Order</th><th>Gift</th><th>Type</th><th>Amount</th><th>Progress / stock</th><th>Status</th><th></th></tr>{% for item in items %}<tr draggable="true" data-item-id="{{ item.id }}" data-dashboard-gift-row data-gift-name="{{ (item.title ~ ' ' ~ item.type_label)|lower|e }}" data-gift-visibility="{{ 'active' if item.is_active else 'hidden' }}"><td><div class="order-controls"><span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span><button type="button" class="order-move" data-move="up" aria-label="Move {{ item.title }} up">↑</button><button type="button" class="order-move" data-move="down" aria-label="Move {{ item.title }} down">↓</button></div></td><td>{{ item.title }}</td><td>{{ item.type_label }}</td><td>{{ money(item.price_cents) }}</td><td>{% if item.gift_type == 'goal' %}{{ item.progress }}%{% else %}{{ item.sold_count }}/{{ item.stock_limit }} sold{% endif %}</td><td>{% if item.is_active %}Active{% else %}Hidden{% endif %}</td><td class="right"><a href="{{ url_for('edit_item', item_id=item.id) }}">Edit</a><form method="post" action="{{ url_for('delete_item', item_id=item.id) }}" class="inline" data-confirm-submit="Delete this gift? This cannot be undone."><button type="submit" class="danger-text">Delete</button></form></td></tr>{% else %}<tr><td colspan="7">No cash gifts yet.</td></tr>{% endfor %}</table><div class="dashboard-gift-empty" data-dashboard-gift-empty hidden>No gifts match your search. Try a different name or status.</div></div>
 </section>
 <section class="section"><div class="section-head"><h2>Recent support</h2></div><div class="panel list frost-card">{% for c in contributions %}<div class="list-row"><b>{{ c.supporter_name }}</b><span>{{ money(c.amount_cents) }} · {{ c.support_type }} · {{ c.status }}{% if c.item %} · {{ c.item.title }}{% endif %}</span></div>{% else %}<p class="muted">No support yet.</p>{% endfor %}</div></section>
 {% endblock %}

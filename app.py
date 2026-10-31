@@ -961,6 +961,8 @@ def item_order_query(query):
 
 def gift_sort_query(query, sort_value):
     sort_value = (sort_value or 'recent').strip().lower()
+    if sort_value == 'custom':
+        return query.order_by(WishlistItem.display_order.asc(), WishlistItem.created_at.desc())
     if sort_value == 'highest':
         return query.order_by(WishlistItem.price_cents.desc(), WishlistItem.created_at.desc())
     if sort_value == 'lowest':
@@ -2501,10 +2503,13 @@ def wishlist_reorder():
     by_id = {item.id: item for item in owned}
     for position, item_id in enumerate(ids, start=1):
         by_id[item_id].display_order = position * 10
+    creator = current_user()
+    creator.gift_sort = 'custom'
     db.session.commit()
+    mongo_backup_model(creator)
     for item in owned:
         mongo_backup_model(item)
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'sort': 'custom'})
 
 
 
@@ -2916,7 +2921,7 @@ def update_gift_sort(username):
     if creator.id != user.id and not user.is_admin:
         abort(403)
     sort_value = (request.form.get('gift_sort') or 'recent').strip().lower()
-    if sort_value not in {'highest', 'lowest', 'recent'}:
+    if sort_value not in {'highest', 'lowest', 'recent', 'custom'}:
         sort_value = 'recent'
     creator.gift_sort = sort_value
     db.session.commit()
