@@ -51,15 +51,27 @@
     <div class="creator-layout creator-layout-clean" id="wishlist">
       <main class="creator-main-list">
         <div class="section-head clean-head"><div><span class="pill">Wishlist</span><h2>Cash gifts</h2></div><span>{{ items|length }} active</span></div>
-        <div class="grid cards-grid creator-cards">
+        {% if items %}
+        <div class="gift-discovery" data-gift-discovery>
+          <label class="gift-search"><span class="visually-hidden">Search gifts</span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input type="search" data-gift-search placeholder="Find a gift..." autocomplete="off" aria-label="Search wishlist gifts"></label>
+          <div class="gift-filter-row" role="group" aria-label="Filter gifts">
+            <button class="gift-filter is-active" type="button" data-gift-filter="all" aria-pressed="true">All gifts</button>
+            <button class="gift-filter" type="button" data-gift-filter="single" aria-pressed="false">Gifts</button>
+            <button class="gift-filter" type="button" data-gift-filter="goal" aria-pressed="false">Goals</button>
+          </div>
+          <p class="gift-result-count" data-gift-count role="status" aria-live="polite"></p>
+        </div>
+        {% endif %}
+        <div class="grid cards-grid creator-cards" data-gift-grid>
           {% for item in items %}
-            <div class="owner-card-wrap">
+            <div class="owner-card-wrap" data-gift-entry data-gift-kind="{{ item.gift_type }}" data-gift-title="{{ (item.title ~ ' ' ~ item.description)|lower|e }}">
               {% include 'partials/item_card.html' %}
             </div>
           {% else %}
             <div class="empty">No wishlist gifts are available yet. This creator has not added any gifts yet.</div>
           {% endfor %}
         </div>
+        <div class="gift-no-results" data-gift-empty hidden><strong>No matching gifts</strong><p>Try a different search or show all gifts.</p><button type="button" class="btn ghost" data-gift-reset>Show all gifts</button></div>
       </main>
     </div>
   </div>

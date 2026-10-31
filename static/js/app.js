@@ -287,3 +287,24 @@ document.addEventListener('click', async (event) => {
  document.addEventListener('pointerdown',e=>{if(!panel.contains(e.target)&&!trigger.contains(e.target))close();});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('is-open')){close();trigger.focus();}});
 })();
+
+// Client-side wishlist discovery; no requests or changes to checkout behavior.
+(() => {
+ const root=document.querySelector('[data-gift-discovery]'); if(!root)return;
+ const search=root.querySelector('[data-gift-search]');
+ const filters=[...root.querySelectorAll('[data-gift-filter]')];
+ const entries=[...document.querySelectorAll('[data-gift-entry]')];
+ const count=root.querySelector('[data-gift-count]');
+ const empty=document.querySelector('[data-gift-empty]');
+ let active='all';
+ const update=()=>{
+  const query=(search.value||'').trim().toLocaleLowerCase();let visible=0;
+  entries.forEach(entry=>{const show=(active==='all'||entry.dataset.giftKind===active)&&(!query||(entry.dataset.giftTitle||'').includes(query));entry.hidden=!show;if(show)visible++;});
+  if(count)count.textContent=`${visible} ${visible===1?'gift':'gifts'} shown`;
+  if(empty)empty.hidden=visible!==0;
+ };
+ search.addEventListener('input',update);
+ filters.forEach(button=>button.addEventListener('click',()=>{active=button.dataset.giftFilter;filters.forEach(option=>{const selected=option===button;option.classList.toggle('is-active',selected);option.setAttribute('aria-pressed',String(selected));});update();}));
+ document.querySelector('[data-gift-reset]')?.addEventListener('click',()=>{search.value='';filters[0]?.click();search.focus();});
+ update();
+})();
